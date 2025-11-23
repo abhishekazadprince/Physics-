@@ -1,8 +1,9 @@
-const CACHE_NAME = 'physics-app-v6';
+const CACHE_NAME = 'kalasimx-v9';
 const urlsToCache = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './KalaSimX.jpg'
 ];
 
 // Install event - caches the files
