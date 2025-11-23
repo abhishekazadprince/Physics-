@@ -4,20 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#ffffff">
-    <meta name="description" content="Physics Learning App">
+    <meta name="mobile-web-app-capable" content="yes">
     
-    <!-- THIS IS THE NEW LINE THAT MAKES IT AN APP -->
+    <!-- LINK TO MANIFEST (CRITICAL) -->
     <link rel="manifest" href="manifest.json">
     
     <title>Abhishek Physics</title>
     
+    <!-- React & Tailwind Engines -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
-        body { -webkit-tap-highlight-color: transparent; user-select: none; font-family: sans-serif; background-color: #f8fafc; }
+        body { -webkit-tap-highlight-color: transparent; user-select: none; font-family: sans-serif; background-color: #f8fafc; overscroll-behavior-y: none; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         canvas { touch-action: none; }
     </style>
@@ -26,6 +27,19 @@
 
 <div id="root" class="w-full h-[100dvh] flex flex-col max-w-md mx-auto bg-white shadow-2xl relative overflow-hidden"></div>
 
+<!-- SERVICE WORKER REGISTRATION -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').then(
+                registration => console.log('SW Registered!', registration.scope),
+                err => console.log('SW Failed:', err)
+            );
+        });
+    }
+</script>
+
+<!-- REACT APP CODE -->
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 
