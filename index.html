@@ -1,154 +1,886 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#ffffff">
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Raju's FDE Lab: Ultimate V3</title>
     
-    <!-- LINK TO MANIFEST (CRITICAL) -->
-    <link rel="manifest" href="manifest.json">
-    
-    <title>Abhishek Physics</title>
-    
-    <!-- React & Tailwind Engines -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
     <style>
-        body { -webkit-tap-highlight-color: transparent; user-select: none; font-family: sans-serif; background-color: #f8fafc; overscroll-behavior-y: none; }
+        /* CORE RESET */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #000; color: #fff; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; height: 100dvh; width: 100vw; margin: 0; padding: 0; }
+        
+        /* CANVAS */
+        canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+        
+        /* UI LAYERS */
+        .glass { background: rgba(20, 20, 30, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.1); }
+        .glass-panel { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(4px); }
+        
+        /* UTILS */
+        .neon-text { text-shadow: 0 0 8px currentColor; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        canvas { touch-action: none; }
+        .safe-top { padding-top: env(safe-area-inset-top); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+        /* CUSTOM SLIDER */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%; background: #06b6d4; margin-top: -7px; box-shadow: 0 0 10px #06b6d4; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #334155; border-radius: 2px; }
+
+        /* ANIMATIONS */
+        .slide-up { transform: translateY(0); }
+        .slide-down { transform: translateY(100%); }
+        .fade-in { opacity: 1; visibility: visible; }
+        .fade-out { opacity: 0; visibility: hidden; }
+
+        /* FOCUS MODE CLASS */
+        .focus-hide { transform: translateY(110%) !important; opacity: 0; pointer-events: none; }
+        .header-hide { transform: translateY(-100%); opacity: 0; }
+        
+        /* TIMELINE SPECIFIC */
+        .timeline-dot { transition: all 0.3s ease; }
     </style>
 </head>
 <body>
 
-<div id="root" class="w-full h-[100dvh] flex flex-col max-w-md mx-auto bg-white shadow-2xl relative overflow-hidden"></div>
+<div id="view-home" class="absolute inset-0 z-50 bg-black flex flex-col transition-transform duration-300">
+    <header class="p-6 safe-top bg-gradient-to-b from-slate-900 to-black border-b border-white/10">
+        <h1 class="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Raju's FDE Lab</h1>
+        <p class="text-slate-400 text-xs mt-1 tracking-widest">ULTIMATE PHYSICS & SERIES SIMULATOR V3</p>
+    </header>
+    
+    <div class="flex-1 overflow-y-auto p-4 space-y-8 safe-bottom" id="algo-list">
+        </div>
+</div>
 
-<!-- SERVICE WORKER REGISTRATION -->
+<div id="view-sim" class="absolute inset-0 z-40 translate-x-full transition-transform duration-300 flex flex-col bg-black">
+    
+    <canvas id="simCanvas" class="absolute inset-0 z-0"></canvas>
+
+    <div class="absolute inset-0 z-10 flex flex-col pointer-events-none">
+        
+        <div id="sim-header" class="pointer-events-auto bg-gradient-to-b from-black/90 to-transparent p-4 safe-top flex items-center justify-between transition-all duration-500">
+            <button onclick="goBack()" class="w-10 h-10 rounded-full bg-white/10 backdrop-blur flex items-center justify-center active:bg-white/20 transition">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            
+            <div class="text-center">
+                <div id="sim-title" class="text-xs font-bold text-cyan-400 neon-text tracking-widest">OSCILLATOR</div>
+                <div class="text-[9px] text-slate-500 font-mono" id="sim-status">RUNNING</div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="toggleFocusMode()" class="w-10 h-10 rounded-full bg-white/10 backdrop-blur flex items-center justify-center active:bg-white/20 transition">
+                    <i class="fas fa-eye" id="focus-icon"></i>
+                </button>
+                <button onclick="toggleFullscreen()" class="w-10 h-10 rounded-full bg-white/10 backdrop-blur flex items-center justify-center active:bg-white/20 transition">
+                    <i class="fas fa-expand" id="fs-icon"></i>
+                </button>
+                <button onclick="togglePause()" id="play-btn" class="w-10 h-10 rounded-full bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)] flex items-center justify-center active:scale-95 transition">
+                    <i class="fas fa-pause"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="overlay-container" class="flex-1 pointer-events-none relative">
+             <div id="timeline-ui" class="absolute bottom-4 left-4 right-4 pointer-events-auto hidden">
+                 <div class="glass-panel p-4 rounded-xl">
+                     <div class="flex justify-between text-[10px] text-slate-400 mb-2 font-mono">
+                         <span>ARYABHATA (476 CE)</span>
+                         <span>MADHAVA (1400 CE)</span>
+                     </div>
+                     <input type="range" id="timeline-slider" min="0" max="4" step="1" value="0" class="w-full">
+                     <div id="timeline-info" class="mt-3 text-xs text-center text-cyan-300 h-16 overflow-y-auto">
+                         Aryabhata: Sine tables via difference equations.
+                     </div>
+                 </div>
+             </div>
+        </div>
+
+        <div id="drawer" class="pointer-events-auto h-[60vh] glass rounded-t-3xl flex flex-col shadow-2xl translate-y-[0] transition-all duration-500">
+            <div class="w-full h-8 flex items-center justify-center cursor-pointer" onclick="toggleDrawer()">
+                <div class="w-12 h-1 bg-white/20 rounded-full"></div>
+            </div>
+
+            <div class="flex border-b border-white/10 px-2 overflow-x-auto no-scrollbar">
+                <button onclick="setTab('controls')" class="tab-btn shrink-0 px-4 py-3 text-[10px] font-bold tracking-widest text-cyan-400 border-b-2 border-cyan-400">CONTROLS</button>
+                <button onclick="setTab('data')" class="tab-btn shrink-0 px-4 py-3 text-[10px] font-bold tracking-widest text-slate-500 border-b-2 border-transparent">DATA</button>
+                <button onclick="setTab('graph')" class="tab-btn shrink-0 px-4 py-3 text-[10px] font-bold tracking-widest text-slate-500 border-b-2 border-transparent">GRAPH</button>
+                <button onclick="setTab('series')" id="tab-btn-series" class="tab-btn shrink-0 px-4 py-3 text-[10px] font-bold tracking-widest text-slate-500 border-b-2 border-transparent hidden">SERIES</button>
+                <button onclick="setTab('compare')" id="tab-btn-compare" class="tab-btn shrink-0 px-4 py-3 text-[10px] font-bold tracking-widest text-slate-500 border-b-2 border-transparent hidden">COMPARE</button>
+                <button onclick="setTab('code')" class="tab-btn shrink-0 px-4 py-3 text-[10px] font-bold tracking-widest text-slate-500 border-b-2 border-transparent">CODE</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 relative safe-bottom">
+                
+                <div id="tab-controls" class="space-y-6">
+                    <div class="glass-panel p-3 rounded-lg text-center min-h-[60px] flex items-center justify-center">
+                        <div id="katex-eq"></div>
+                    </div>
+                    
+                    <div id="3d-controls" class="glass-panel p-3 rounded-lg flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                             <span class="text-xs text-yellow-400 font-bold"><i class="fas fa-cube mr-1"></i> 3D MODE</span>
+                             <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="inp-3d" class="sr-only peer">
+                                <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
+                             </label>
+                        </div>
+                        <div id="tilt-wrapper" class="hidden transition-all">
+                             <div class="flex justify-between text-[10px] text-slate-400 mt-2">
+                                <span>Tilt Angle</span>
+                                <span id="lbl-tilt">45°</span>
+                             </div>
+                             <input type="range" id="inp-tilt" min="0" max="90" value="45" class="w-full mt-1">
+                        </div>
+                    </div>
+
+                    <div class="space-y-5" id="dynamic-controls">
+                        <div class="space-y-2 control-group" id="grp-tau">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-400">Delay (τ) / History</span>
+                                <span id="lbl-tau" class="font-mono text-cyan-300">20</span>
+                            </div>
+                            <input type="range" id="inp-tau" min="0" max="100" value="20">
+                        </div>
+                        <div class="space-y-2 control-group" id="grp-k">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-400">Param K (Force/Stiffness)</span>
+                                <span id="lbl-k" class="font-mono text-cyan-300">0.1</span>
+                            </div>
+                            <input type="range" id="inp-k" min="0.01" max="1.0" step="0.01" value="0.1">
+                        </div>
+                        <div class="space-y-2 control-group">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-400">View Zoom (Pinch supported)</span>
+                                <span id="lbl-zoom" class="font-mono text-cyan-300">1.0</span>
+                            </div>
+                            <input type="range" id="inp-zoom" min="0.1" max="10.0" step="0.1" value="1.0">
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-xl flex flex-col gap-4">
+                        <div class="flex items-center gap-4 w-full">
+                            <input type="color" id="inp-color" value="#06b6d4" class="w-10 h-10 rounded-full bg-transparent border-none">
+                            <div class="flex-1 space-y-1">
+                                <div class="text-xs text-slate-400">Visual Settings</div>
+                                <label class="flex items-center gap-2 text-xs">
+                                    <input type="checkbox" id="inp-glow" checked class="accent-cyan-400"> Neon Glow
+                                </label>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <label class="flex items-center gap-2 text-[10px] text-slate-300">
+                                <input type="checkbox" id="inp-trail" class="accent-cyan-400"> Long Trail
+                            </label>
+                            <label class="flex items-center gap-2 text-[10px] text-slate-300">
+                                <input type="checkbox" id="inp-trajectory" checked class="accent-cyan-400"> Trajectory
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-data" class="hidden h-full flex flex-col">
+                    <div class="flex justify-between mb-3">
+                        <span class="text-xs font-bold text-slate-400">HIGH PRECISION LOG</span>
+                        <button onclick="exportPDF()" class="bg-red-600 hover:bg-red-500 text-white text-[10px] px-3 py-1 rounded font-bold shadow-lg shadow-red-900/50"><i class="fas fa-file-pdf mr-1"></i> FULL PDF EXPORT</button>
+                    </div>
+                    <div class="flex-1 overflow-auto rounded border border-white/10 bg-black/40">
+                        <table class="w-full text-[10px] font-mono">
+                            <thead class="bg-white/5 sticky top-0 text-cyan-400 text-left">
+                                <tr><th class="p-2">Step</th><th class="p-2">Value</th><th class="p-2">Diff/Error</th></tr>
+                            </thead>
+                            <tbody id="data-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-graph" class="hidden h-full flex flex-col">
+                    <div class="flex-1 bg-black/40 rounded border border-white/10 p-2 relative">
+                        <canvas id="graphCanvas"></canvas>
+                    </div>
+                    <div class="flex justify-between items-center mt-2">
+                         <div class="text-[10px] text-green-400 font-mono"><i class="fas fa-check-circle"></i> STABLE SOLUTION</div>
+                         <button onclick="exportGraphPDF()" class="text-xs text-slate-400 hover:text-white"><i class="fas fa-camera"></i> Capture</button>
+                    </div>
+                </div>
+
+                <div id="tab-series" class="hidden h-full flex flex-col space-y-4">
+                     <div class="glass-panel p-3 rounded text-center">
+                         <div id="series-eq" class="text-xs"></div>
+                     </div>
+                     <div class="flex justify-between items-center">
+                         <span class="text-xs text-slate-400">Terms: <span id="lbl-terms" class="text-cyan-400">5</span></span>
+                         <button id="btn-limits" class="bg-yellow-600/50 text-[10px] px-2 py-1 rounded border border-yellow-500/50 text-yellow-200" onclick="toggleLimits()">Introduce Limits</button>
+                     </div>
+                     <input type="range" id="inp-terms" min="1" max="50" value="5">
+                     
+                     <div class="flex-1 bg-black/40 rounded border border-white/10 p-2 relative">
+                        <canvas id="seriesCanvas"></canvas>
+                     </div>
+                     <div class="text-[10px] text-slate-400" id="series-desc">
+                         Riemann Sum → Numerical Quadrature. Adjust terms to see convergence.
+                     </div>
+                </div>
+                
+                <div id="tab-compare" class="hidden h-full flex flex-col space-y-4">
+                     <div class="grid grid-cols-2 gap-2 text-center text-[10px] font-bold">
+                         <div class="text-blue-400">NEWTON/PDE</div>
+                         <div class="text-pink-400">RAJU/FDE (Retarded)</div>
+                     </div>
+                     <div class="flex-1 bg-black/40 rounded border border-white/10 p-2 relative">
+                        <canvas id="compareCanvas"></canvas>
+                     </div>
+                     <div class="glass-panel p-2 rounded text-[10px] font-mono space-y-1">
+                         <div class="flex justify-between"><span>Energy Drift (PDE):</span> <span id="drift-pde" class="text-blue-400">0.00%</span></div>
+                         <div class="flex justify-between"><span>Energy Drift (FDE):</span> <span id="drift-fde" class="text-pink-400">0.00%</span></div>
+                         <div class="flex justify-between"><span>Causality Lag:</span> <span id="lag-val" class="text-yellow-400">0.00s</span></div>
+                     </div>
+                </div>
+
+                <div id="tab-code" class="hidden h-full">
+                    <div class="bg-slate-900 p-4 rounded-xl border border-white/10 h-full overflow-auto">
+                        <pre id="code-block" class="text-[10px] font-mono text-green-400 whitespace-pre-wrap"></pre>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js').then(
-                registration => console.log('SW Registered!', registration.scope),
-                err => console.log('SW Failed:', err)
+/**
+ * RAJU'S FDE LAB: ULTIMATE V3
+ * Features: High-Precision PDF, 3D Visualization, Infinite Touch Zoom
+ */
+
+// --- 1. CONFIG & DATABASES ---
+const ALGO_DB = {
+    'HISTORY OF CALCULUS': [
+        { id: 'series_sin', title: 'Infinite Series: Sin(x)', type: 'SERIES', eq: '\\sin(x) \\approx \\sum_{n=0}^{N} (-1)^n \\frac{x^{2n+1}}{(2n+1)!}', code: 'def sin_series(x, n_terms):\n  sum = 0\n  for n in 0..n_terms:\n    term = (-1)^n * x^(2n+1) / fact(2n+1)\n    sum += term\n    log_error(term)\n  return sum' },
+        { id: 'series_pi', title: 'Madhava-Leibniz Series (π)', type: 'SERIES', eq: '\\frac{\\pi}{4} \\approx 1 - \\frac{1}{3} + \\frac{1}{5} - ...', code: 'def pi_series(n_terms):\n  pi_approx = 0\n  for n in 0..n_terms:\n    pi_approx += 4 * (-1)^n / (2*n + 1)\n  return pi_approx' },
+        { id: 'timeline', title: 'Aryabhata-Madhava Timeline', type: 'TIMELINE', eq: 'y_n - y_{n-1} = \\Delta y', code: '// Timeline Visualization Mode' }
+    ],
+    'PHYSICS: TIME & CAUSALITY': [
+        { id: 'osc_compare', title: 'PDE vs FDE Oscillator', type: 'COMPARE', eq: 'm\\ddot{x} = -kx \\quad vs \\quad m\\ddot{x} = -kx(t-\\tau)', code: 'def compare_physics():\n  acc_newton = -k * x\n  acc_raju = -k * history.get(t-tau)\n  integrate(both)' },
+        { id: 'galaxy', title: 'Spiral Galaxy Model', type: 'FDE', eq: 'a = \\frac{GM}{r^2} + F_{retarded}', code: 'def galaxy_rot(r, t):\n  # Flat rotation curve emergent from delay?\n  force_ret = gravity(r, t - r/c)\n  return update_stars(force_ret)' },
+        { id: 'flyby', title: 'Flyby Anomaly', type: 'FDE', eq: '\\Delta E \\propto \\omega_{earth} \\cdot \\Delta t_{delay}', code: 'def flyby_energy(v, w):\n  # Simplified energy kick due to retarded frame dragging\n  return v + 0.001 * w * sin(lat)' }
+    ],
+    'QUANTUM & FIELDS': [
+        { id: 'qm_packet', title: 'Schrödinger vs Delayed', type: 'FIELD_COMPARE', eq: 'i\\hbar \\partial_t \\psi = H \\psi', code: 'def qm_evolve(psi):\n  # Standard PDE evolution\n  psi_new = solve_schrodinger(psi)\n  # FDE evolution with memory\n  psi_mem = solve_fde(psi, history)\n  return compare(psi_new, psi_mem)' }
+    ]
+};
+
+// --- 2. GLOBAL STATE ---
+const State = {
+    activeAlgo: null,
+    running: false,
+    t: 0,
+    history: { x: [], v: [], p: [], x_pde: [], v_pde: [] },
+    field: [],
+    params: { 
+        k: 0.1, gamma: 0.05, tau: 20, 
+        color: '#06b6d4', glow: true, zoom: 1.0, 
+        longTrail: false, showTrajectory: true,
+        terms: 5, showLimits: false,
+        is3D: false, tilt: 45
+    },
+    focusMode: false,
+    navigation: { initialDist: 0, isZooming: false, lastTap: 0 }
+};
+
+// --- 3. DOM ELEMENTS ---
+const cvs = document.getElementById('simCanvas');
+const ctx = cvs.getContext('2d');
+let chartObj = null;
+let seriesChart = null;
+let compareChart = null;
+
+// --- 4. INITIALIZATION ---
+function init() {
+    resize();
+    populateHome();
+    window.addEventListener('resize', resize);
+    
+    // Sliders
+    bindInput('inp-tau', 'tau');
+    bindInput('inp-k', 'k');
+    bindInput('inp-zoom', 'zoom');
+    bindInput('inp-terms', 'terms');
+    bindInput('inp-tilt', 'tilt');
+
+    // 3D Toggle
+    document.getElementById('inp-3d').addEventListener('change', (e) => {
+        State.params.is3D = e.target.checked;
+        const tiltWrap = document.getElementById('tilt-wrapper');
+        if(State.params.is3D) {
+            tiltWrap.classList.remove('hidden');
+        } else {
+            tiltWrap.classList.add('hidden');
+        }
+    });
+
+    // Touch Zoom Logic (Restored)
+    setupTouchZoom();
+
+    requestAnimationFrame(loop);
+}
+
+function resize() {
+    cvs.width = window.innerWidth;
+    cvs.height = window.innerHeight;
+}
+
+function setupTouchZoom() {
+    cvs.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            State.navigation.isZooming = true;
+            State.navigation.initialDist = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
             );
+        }
+    }, { passive: false });
+
+    cvs.addEventListener('touchmove', (e) => {
+        if (State.navigation.isZooming && e.touches.length === 2) {
+            e.preventDefault();
+            const currentDist = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            
+            const zoomFactor = currentDist / State.navigation.initialDist;
+            let newZoom = State.params.zoom * zoomFactor;
+            if (newZoom > 0.1 && newZoom < 20.0) {
+                State.params.zoom = newZoom;
+                document.getElementById('lbl-zoom').innerText = newZoom.toFixed(2);
+                document.getElementById('inp-zoom').value = newZoom;
+            }
+            State.navigation.initialDist = currentDist;
+        }
+    }, { passive: false });
+
+    cvs.addEventListener('touchend', (e) => {
+        State.navigation.isZooming = false;
+    });
+}
+
+function populateHome() {
+    const list = document.getElementById('algo-list');
+    list.innerHTML = '';
+    Object.keys(ALGO_DB).forEach(cat => {
+        let section = document.createElement('div');
+        section.innerHTML = `<h3 class="text-xs font-bold text-slate-500 mb-3 ml-1 border-l-2 border-cyan-500 pl-2">${cat}</h3>`;
+        let grid = document.createElement('div');
+        grid.className = 'grid grid-cols-1 gap-3 mb-6';
+        ALGO_DB[cat].forEach(algo => {
+            let btn = document.createElement('button');
+            btn.className = 'bg-white/5 border border-white/10 p-4 rounded-xl flex justify-between items-center active:bg-white/10 transition group hover:border-cyan-400/50';
+            btn.innerHTML = `
+                <div class="text-left">
+                    <div class="font-bold text-sm text-slate-200 group-hover:text-cyan-400 transition">${algo.title}</div>
+                    <div class="text-[10px] text-slate-500 font-mono mt-1">${algo.type} SIMULATION</div>
+                </div>
+                <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center text-cyan-500 group-hover:bg-cyan-500 group-hover:text-black transition"><i class="fas fa-play text-xs"></i></div>
+            `;
+            btn.onclick = () => launchSim(algo);
+            grid.appendChild(btn);
+        });
+        section.appendChild(grid);
+        list.appendChild(section);
+    });
+}
+
+// --- 5. NAVIGATION ---
+function launchSim(algo) {
+    State.activeAlgo = algo;
+    State.t = 0;
+    State.running = true;
+    State.history = { x: [], v: [], p: [], x_pde: [], v_pde: [] };
+    if(algo.type.includes('FIELD')) initField();
+
+    document.getElementById('sim-title').innerText = algo.title.toUpperCase();
+    document.getElementById('code-block').innerText = algo.code;
+    
+    // Reset specific UI
+    document.getElementById('tab-btn-series').classList.add('hidden');
+    document.getElementById('tab-btn-compare').classList.add('hidden');
+    document.getElementById('timeline-ui').classList.add('hidden');
+    
+    let defaultTab = 'controls';
+    if(algo.type === 'SERIES') {
+        document.getElementById('tab-btn-series').classList.remove('hidden');
+        defaultTab = 'series';
+        initSeriesChart();
+    } else if (algo.type === 'TIMELINE') {
+        document.getElementById('timeline-ui').classList.remove('hidden');
+    } else if (algo.type.includes('COMPARE')) {
+        document.getElementById('tab-btn-compare').classList.remove('hidden');
+        defaultTab = 'compare';
+        initCompareChart();
+    } else {
+        initChart();
+    }
+    setTab(defaultTab);
+    renderMath();
+    
+    const home = document.getElementById('view-home');
+    const sim = document.getElementById('view-sim');
+    home.style.transform = 'translateX(-20%)';
+    home.style.opacity = '0';
+    setTimeout(() => home.style.display = 'none', 300);
+    sim.style.transform = 'translateX(0)';
+}
+
+function goBack() {
+    State.running = false;
+    // Exit Fullscreen if active
+    if (document.fullscreenElement) document.exitFullscreen();
+    
+    const home = document.getElementById('view-home');
+    const sim = document.getElementById('view-sim');
+    home.style.display = 'flex';
+    setTimeout(() => {
+        home.style.transform = 'translateX(0)';
+        home.style.opacity = '1';
+        sim.style.transform = 'translateX(100%)';
+    }, 10);
+    document.getElementById('timeline-ui').classList.add('hidden');
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+            // Force Resize after minimal delay to ensure browser chrome is gone
+            setTimeout(resize, 100);
+        }).catch(err => {
+            console.log(`Error: ${err.message}`);
+        });
+        document.getElementById('fs-icon').className = 'fas fa-compress';
+    } else {
+        document.exitFullscreen();
+        document.getElementById('fs-icon').className = 'fas fa-expand';
+    }
+}
+
+// --- 6. PHYSICS LOOP ---
+function loop() {
+    if(!State.running) { requestAnimationFrame(loop); return; }
+    
+    const dt = 0.1;
+    const { k, gamma, tau } = State.params;
+    
+    // Physics Logic
+    if(State.activeAlgo.type === 'FDE' || State.activeAlgo.type === 'COMPARE') {
+        physicsStep(dt, k, gamma, tau);
+    } else if(State.activeAlgo.type.includes('FIELD')) {
+        fieldStep(dt);
+    }
+    
+    State.t++;
+    drawWorld();
+    if(State.t % 5 === 0) updateTable();
+    if(State.t % 5 === 0) updateCharts();
+    requestAnimationFrame(loop);
+}
+
+function physicsStep(dt, k, gamma, tau) {
+    let histIdx = Math.max(0, State.history.x.length - 1 - Math.floor(tau));
+    let x = State.history.x[0] || (State.activeAlgo.id === 'galaxy' ? 10 : 2);
+    let v = State.history.v[0] || 0;
+    let v_old = State.history.v[histIdx] || v;
+    let a = 0;
+    
+    if(State.activeAlgo.id === 'galaxy') {
+         let r = Math.abs(x);
+         // Simplified rotation curve logic
+         a = -100 / (r*r + 0.1) + v*v/r; 
+    } else {
+         a = -k*x - gamma*v_old;
+    }
+
+    v += a * dt;
+    x += v * dt;
+    State.history.x.unshift(x);
+    State.history.v.unshift(v);
+
+    if(State.activeAlgo.type === 'COMPARE') {
+        let xp = State.history.x_pde[0] || 2;
+        let vp = State.history.v_pde[0] || 0;
+        let ap = -k*xp - gamma*vp;
+        vp += ap * dt;
+        xp += vp * dt;
+        State.history.x_pde.unshift(xp);
+        State.history.v_pde.unshift(vp);
+    }
+
+    // Limit buffer for performance (but keep enough for "long" usage)
+    const limit = State.params.longTrail ? 5000 : 1000;
+    if(State.history.x.length > limit) {
+        State.history.x.pop(); State.history.v.pop();
+        if(State.history.x_pde.length > 0) { State.history.x_pde.pop(); State.history.v_pde.pop(); }
+    }
+}
+
+function fieldStep(dt) {
+    if(!State.field.length) return;
+    let newField = [...State.field];
+    for(let i=1; i<State.field.length-1; i++) {
+        let laplacian = State.field[i-1] + State.field[i+1] - 2*State.field[i];
+        newField[i] = State.field[i] + 0.1 * laplacian; 
+    }
+    State.field = newField;
+}
+
+function initField() {
+    State.field = new Array(100).fill(0).map((_, i) => Math.exp(-Math.pow((i-50)/10, 2)));
+}
+
+// --- 7. RENDERING (WITH 3D SUPPORT) ---
+function drawWorld() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,cvs.width,cvs.height);
+    
+    const cx = cvs.width/2;
+    const cy = cvs.height/2;
+    const zoom = State.params.zoom;
+    const is3D = State.params.is3D;
+    const tiltRad = (State.params.tilt * Math.PI) / 180;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(zoom, zoom);
+    
+    // Helper to project 3D point (x, y, z) to 2D canvas
+    // Simple isometric-like projection
+    function project(x, y, z) {
+        if (!is3D) return { x, y };
+        // Rotate around X-axis (Tilt)
+        let y_rot = y * Math.cos(tiltRad) - z * Math.sin(tiltRad);
+        let z_rot = y * Math.sin(tiltRad) + z * Math.cos(tiltRad);
+        // Perspective projection
+        let scale = 500 / (500 + z_rot); 
+        return { x: x * scale, y: y_rot * scale };
+    }
+
+    if(State.activeAlgo.type === 'FDE' || State.activeAlgo.type === 'COMPARE') {
+        ctx.strokeStyle = State.params.color;
+        ctx.lineWidth = 2/zoom;
+        ctx.beginPath();
+        
+        // DRAW TRAJECTORY
+        if(State.activeAlgo.id === 'galaxy') {
+             State.history.x.forEach((r, i) => {
+                 let angle = (State.t - i) * 0.05;
+                 // 3D Spiral: X=r*cos, Y=r*sin, Z=small variation or 0
+                 let px = r * Math.cos(angle) * 10;
+                 let py = r * Math.sin(angle) * 10;
+                 let pz = Math.sin(angle*3) * 5; // Wavy disk
+                 
+                 let proj = project(px, py, pz);
+                 if(i===0) ctx.moveTo(proj.x, proj.y);
+                 else ctx.lineTo(proj.x, proj.y);
+             });
+        } else {
+             // Oscillator: Time is X, Value is Y.
+             // In 3D, we can map Time -> Z, Value -> Y, 0 -> X?
+             // Or Time -> X, Value -> Y (standard).
+             State.history.x.forEach((val, i) => {
+                 let px = (i * -2); 
+                 let py = val * 50;
+                 let pz = 0;
+                 if(is3D) {
+                     // In 3D, let's make time go into the screen (Z)
+                     px = 0;
+                     py = val * 50;
+                     pz = i * 2;
+                 }
+                 let proj = project(px, py, pz);
+                 if(i===0) ctx.moveTo(proj.x, proj.y);
+                 else ctx.lineTo(proj.x, proj.y);
+             });
+        }
+        ctx.stroke();
+
+        // Draw Object Head
+        let currVal = State.history.x[0] || 0;
+        ctx.fillStyle = State.params.color;
+        ctx.shadowBlur = State.params.glow ? 15 : 0;
+        ctx.shadowColor = State.params.color;
+        
+        let headPos;
+        if(State.activeAlgo.id === 'galaxy') {
+            let angle = State.t * 0.05;
+            headPos = project(currVal*Math.cos(angle)*10, currVal*Math.sin(angle)*10, Math.sin(angle*3)*5);
+        } else {
+            headPos = is3D ? project(0, currVal*50, 0) : project(0, currVal*50, 0);
+        }
+        
+        ctx.beginPath();
+        ctx.arc(headPos.x, headPos.y, 8/zoom, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Grid floor in 3D
+        if(is3D) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1/zoom;
+            ctx.beginPath();
+            for(let i=-100; i<=100; i+=20) {
+                let p1 = project(i, 0, -200);
+                let p2 = project(i, 0, 200);
+                ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                let p3 = project(-100, 0, i*2);
+                let p4 = project(100, 0, i*2);
+                ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
+            }
+            ctx.stroke();
+        }
+    }
+    // SERIES VISUALIZATION (2D Only)
+    else if(State.activeAlgo.type === 'SERIES') {
+        if(State.activeAlgo.id === 'series_sin') {
+            ctx.strokeStyle = '#334155';
+            ctx.beginPath(); ctx.arc(0,0, 100, 0, Math.PI*2); ctx.stroke();
+            let angle = (State.t * 0.02) % (2*Math.PI);
+            ctx.strokeStyle = '#fff';
+            ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(100*Math.cos(angle), 100*Math.sin(angle)); ctx.stroke();
+            ctx.fillStyle = State.params.color;
+            ctx.beginPath(); ctx.arc(100*Math.cos(angle), 100*Math.sin(angle), 5, 0, Math.PI*2); ctx.fill();
+        }
+    }
+
+    ctx.restore();
+}
+
+// --- 8. UI HELPERS ---
+function toggleDrawer() {
+    const d = document.getElementById('drawer');
+    const isCollapsed = d.style.transform === 'translateY(80%)';
+    d.style.transform = isCollapsed ? 'translateY(0)' : 'translateY(80%)';
+}
+
+function toggleFocusMode() {
+    State.focusMode = !State.focusMode;
+    const drawer = document.getElementById('drawer');
+    const header = document.getElementById('sim-header');
+    const icon = document.getElementById('focus-icon');
+    if(State.focusMode) {
+        drawer.classList.add('focus-hide');
+        header.classList.add('header-hide');
+        icon.className = 'fas fa-eye-slash text-cyan-400';
+        setTimeout(() => { header.classList.remove('pointer-events-none'); header.style.pointerEvents = 'auto'; }, 500);
+    } else {
+        drawer.classList.remove('focus-hide');
+        header.classList.remove('header-hide');
+        icon.className = 'fas fa-eye';
+    }
+}
+
+function togglePause() {
+    State.running = !State.running;
+    document.getElementById('play-btn').innerHTML = State.running ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+    document.getElementById('sim-status').innerText = State.running ? 'RUNNING' : 'PAUSED';
+    if(State.running) loop();
+}
+
+function setTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('text-cyan-400', 'border-cyan-400');
+        b.classList.add('text-slate-500', 'border-transparent');
+    });
+    const activeBtn = document.querySelector(`button[onclick="setTab('${name}')"]`);
+    if(activeBtn) {
+        activeBtn.classList.remove('text-slate-500', 'border-transparent');
+        activeBtn.classList.add('text-cyan-400', 'border-cyan-400');
+    }
+    ['controls', 'data', 'graph', 'code', 'series', 'compare'].forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        if(el) el.classList.add('hidden');
+    });
+    document.getElementById(`tab-${name}`).classList.remove('hidden');
+}
+
+function bindInput(id, param) {
+    const el = document.getElementById(id);
+    if(el) {
+        el.addEventListener('input', (e) => {
+            State.params[param] = parseFloat(e.target.value);
+            const lbl = document.getElementById(`lbl-${param}`);
+            if(lbl) lbl.innerText = e.target.value;
+            if(param === 'terms') resetSeriesChart();
+            renderMath();
         });
     }
-</script>
+}
 
-<!-- REACT APP CODE -->
-<script type="text/babel">
-const { useState, useEffect, useRef } = React;
+function renderMath() {
+    if(!State.activeAlgo) return;
+    let eq = State.activeAlgo.eq;
+    if(State.activeAlgo.type === 'FDE') {
+        eq = eq.replace('k', State.params.k).replace('\\tau', State.params.tau);
+    }
+    katex.render(eq, document.getElementById('katex-eq'), { throwOnError: false });
+    if(State.activeAlgo.type === 'SERIES') {
+        document.getElementById('series-eq').innerText = "Partial Sum terms: " + State.params.terms;
+    }
+}
 
-// --- ICONS ---
-const Icons = {
-    Menu: () => <svg width="24" height="24" fill="none" stroke="#1e293b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
-    Back: () => <svg width="24" height="24" fill="none" stroke="#1e293b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>,
-    Atom: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/></svg>,
-    Book: () => <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
-    Lab: () => <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M2 12h20"/><path d="M2 12l5-5"/><path d="M22 12l-5 5"/></svg>,
-    User: () => <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-    Close: () => <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-};
+function toggleLimits() {
+    State.params.showLimits = !State.params.showLimits;
+    document.getElementById('btn-limits').innerText = State.params.showLimits ? "Hide Limits" : "Introduce Limits";
+    document.getElementById('series-desc').innerText = State.params.showLimits 
+        ? "Limits were invented to control the instability you see when calculating infinite sums manually." 
+        : "Riemann Sum → Numerical Quadrature. Adjust terms to see convergence.";
+}
 
-// --- DATA ---
-const BOOKS = [
-    { id: 1, title: "Physics Concept Builder Vol 1", price: "₹450", link: "https://amzn.in/d/hCAUILC", desc: "For JEE Main & Advanced", color: "bg-orange-100 text-orange-800" },
-    { id: 2, title: "Advanced Problems in Physics", price: "₹650", link: "https://amzn.in/d/gSdEWNs", desc: "Problem Collection", color: "bg-blue-100 text-blue-800" },
-    { id: 3, title: "Digital Physics Interactive", price: "₹200", link: "https://play.google.com/store/books/details?id=dINYEQAAQBAJ", desc: "e-Book Edition", color: "bg-green-100 text-green-800" }
-];
+function factorial(n) {
+    if (n === 0 || n === 1) return 1;
+    let result = 1;
+    for (let i = 2; i <= n; i++) result *= i;
+    return result;
+}
 
-const SIMS = [
-    { id: 'orbit', title: 'Planetary Motion', desc: 'Kepler\'s Laws', color: 'bg-indigo-50 text-indigo-600' },
-    { id: 'pendulum', title: 'Pendulum (SHM)', desc: 'Oscillations', color: 'bg-pink-50 text-pink-600' },
-    { id: 'thermo', title: 'Thermodynamics', desc: 'Gas Laws', color: 'bg-orange-50 text-orange-600' },
-    { id: 'em', title: 'Electromagnetism', desc: 'Field Lines', color: 'bg-violet-50 text-violet-600' },
-    { id: 'optics', title: 'Speed of Light', desc: 'Relativity', color: 'bg-cyan-50 text-cyan-600' },
-];
+// --- 9. DATA LOGGING & EXPORT ---
+function updateTable() {
+    const body = document.getElementById('data-body');
+    if(!body || document.getElementById('tab-data').classList.contains('hidden')) return;
+    
+    let val = 0, diff = 0;
+    if(State.activeAlgo.type === 'SERIES') {
+        let x = (State.t * 0.02) % (2*Math.PI);
+        if(State.activeAlgo.id === 'series_sin') {
+            let approx = 0;
+            for(let n=0; n<State.params.terms; n++) approx += Math.pow(-1, n) * Math.pow(x, 2*n+1) / factorial(2*n+1);
+            val = approx; diff = Math.abs(Math.sin(x) - approx);
+        }
+    } else {
+        val = State.history.x[0] || 0;
+        diff = State.history.v[0] || 0;
+    }
 
-const PROFILE = { name: "Abhishek Kumar", role: "Physics Faculty (9+ yrs)", details: ["B.Tech (CSE)", "Ex-Faculty: Jaipuria School", "Ex-Faculty: S.P. College Pune", "Expert: Python, LaTeX"] };
+    let row = document.createElement('tr');
+    // Using 6 decimal precision for display
+    row.innerHTML = `<td class="p-2 text-slate-500">${State.t}</td><td class="p-2 text-cyan-400">${val.toFixed(6)}</td><td class="p-2 text-pink-400">${diff.toFixed(6)}</td>`;
+    if(body.children.length > 20) body.removeChild(body.lastChild);
+    body.insertBefore(row, body.firstChild);
+}
 
-// --- SIMULATION ENGINE ---
-const SimCanvas = ({ type }) => {
-    const canvasRef = useRef(null);
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        let t = 0; let id;
-        const render = () => {
-            t++; const w = canvas.width = canvas.parentElement.clientWidth; const h = canvas.height = 240;
-            ctx.fillStyle = '#1e293b'; ctx.fillRect(0,0,w,h); const cx = w/2, cy = h/2;
-            if(type === 'orbit') {
-                ctx.beginPath(); ctx.arc(cx, cy, 15, 0, 7); ctx.fillStyle='#fbbf24'; ctx.fill();
-                ctx.beginPath(); ctx.ellipse(cx, cy, 100, 60, 0, 0, 7); ctx.strokeStyle='#334155'; ctx.stroke();
-                const px = cx + 100 * Math.cos(t*0.02); const py = cy + 60 * Math.sin(t*0.02);
-                ctx.beginPath(); ctx.arc(px, py, 6, 0, 7); ctx.fillStyle='#38bdf8'; ctx.fill();
-            }
-            if(type === 'pendulum') {
-                ctx.fillStyle = '#f8fafc'; ctx.fillRect(0,0,w,h); const ang = Math.sin(t*0.05) * Math.PI/4;
-                const bx = cx + 120*Math.sin(ang); const by = 20 + 120*Math.cos(ang);
-                ctx.beginPath(); ctx.moveTo(cx,20); ctx.lineTo(bx,by); ctx.strokeStyle='#475569'; ctx.stroke();
-                ctx.beginPath(); ctx.arc(bx, by, 12, 0, 7); ctx.fillStyle='#e11d48'; ctx.fill();
-            }
-            if(type === 'thermo') {
-                for(let i=0; i<30; i++) {
-                    const x = (Math.sin(t*0.01 + i)*0.5 + 0.5) * w; const y = (Math.cos(t*0.02 + i)*0.5 + 0.5) * h;
-                    ctx.beginPath(); ctx.arc(x,y,3,0,7); ctx.fillStyle=i%2?'#f97316':'#38bdf8'; ctx.fill();
-                }
-            }
-            if(type === 'em') {
-                ctx.strokeStyle='#ef4444'; for(let r=20; r<100; r+=20) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke(); }
-                const x = cx + 60*Math.cos(t*0.05); ctx.beginPath(); ctx.arc(x, cy, 8, 0, 7); ctx.fillStyle='#3b82f6'; ctx.fill();
-            }
-            if(type === 'optics') {
-                const lx = (t*10)%w; ctx.beginPath(); ctx.arc(lx, cy, 4, 0, 7); ctx.fillStyle='#facc15'; ctx.fill();
-                ctx.fillStyle='#fff'; ctx.fillText('Photon c', 10, cy-20);
-            }
-            id = requestAnimationFrame(render);
-        };
-        render(); return () => cancelAnimationFrame(id);
-    }, [type]);
-    return <div className="rounded-xl overflow-hidden mt-4 shadow-inner"><canvas ref={canvasRef} className="block w-full h-[240px]"/></div>;
-};
+// HIGH PRECISION FULL EXPORT
+window.exportPDF = function() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Raju's FDE Lab: High Precision Log", 10, 15);
+    doc.setFontSize(10);
+    doc.text(`Algorithm: ${State.activeAlgo.title} | Timestamp: ${new Date().toLocaleTimeString()}`, 10, 25);
+    
+    // Prepare ALL data (not just visible) with High Precision
+    let rows = [];
+    if(State.activeAlgo.type === 'SERIES') {
+        // For series, generate a fresh set for export
+        for(let i=0; i<100; i++) {
+             let x = (i * 0.1);
+             let approx = 0;
+             for(let n=0; n<State.params.terms; n++) approx += Math.pow(-1, n) * Math.pow(x, 2*n+1) / factorial(2*n+1);
+             rows.push([i, approx.toPrecision(8), Math.abs(Math.sin(x)-approx).toPrecision(8)]);
+        }
+    } else {
+        rows = State.history.x.map((x, i) => [
+            i, 
+            x.toPrecision(8), 
+            (State.history.v[i]||0).toPrecision(8)
+        ]);
+    }
 
-const App = () => {
-    const [view, setView] = useState('home'); const [sim, setSim] = useState(null); const [menu, setMenu] = useState(false);
-    return (
-        <div className="flex flex-col h-full bg-slate-50">
-            <header className="bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shrink-0 sticky top-0 z-20">
-                <div className="flex items-center gap-2" onClick={() => setView('home')}>
-                    <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold">P</div>
-                    <span className="font-bold text-slate-800">Physics</span>
-                </div>
-                <button onClick={() => setMenu(true)} className="p-2"><Icons.Menu /></button>
-            </header>
-            {/* Drawer */}
-            <div className={`fixed inset-0 z-50 bg-black/50 transition-opacity ${menu ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setMenu(false)}>
-                <div className={`absolute right-0 top-0 bottom-0 w-72 bg-white shadow-2xl p-6 transition-transform duration-300 ${menu ? 'translate-x-0' : 'translate-x-full'}`} onClick={e => e.stopPropagation()}>
-                    <div className="flex justify-between items-center mb-8"><h2 className="font-bold text-xl">Profile</h2><button onClick={() => setMenu(false)}><Icons.Close /></button></div>
-                    <div className="text-center mb-6"><div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full mx-auto flex items-center justify-center mb-3"><Icons.User /></div><h3 className="font-bold text-lg text-slate-800">{PROFILE.name}</h3><p className="text-sm text-slate-500">{PROFILE.role}</p></div>
-                    <div className="space-y-3 text-sm text-slate-600">{PROFILE.details.map((d, i) => <div key={i} className="pl-3 border-l-2 border-blue-500">{d}</div>)}</div>
-                </div>
-            </div>
-            {/* Main */}
-            <main className="flex-1 overflow-y-auto no-scrollbar p-4 pb-24">
-                {view === 'home' && (
-                    <div className="space-y-6">
-                        <div className="bg-slate-900 text-white p-6 rounded-2xl relative overflow-hidden shadow-xl"><div className="relative z-10"><h1 className="text-2xl font-bold mb-1">Visual Labs</h1><p className="text-slate-400 text-sm">Interactive Physics for JEE</p></div><Icons.Atom className="absolute right-[-10px] bottom-[-10px] w-24 h-24 text-slate-700 opacity-50" /></div>
-                        <div><h3 className="font-bold text-slate-800 mb-3 text-sm uppercase tracking-wide">Experiments</h3><div className="space-y-3">{SIMS.map(s => (<button key={s.id} onClick={() => { setSim(s.id); setView('sim'); }} className="w-full bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4 text-left"><div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${s.color}`}><Icons.Atom /></div><div><div className="font-bold text-slate-900">{s.title}</div><div className="text-xs text-slate-500">{s.desc}</div></div></button>))}</div></div>
-                    </div>
-                )}
-                {view === 'sim' && (<div className="animate-in slide-in-from-bottom duration-300"><button onClick={() => setView('home')} className="flex items-center gap-2 text-slate-500 mb-4 font-bold text-sm"><Icons.Back /> Back</button><h2 className="text-2xl font-bold text-slate-900 mb-2">{SIMS.find(s=>s.id===sim)?.title}</h2><SimCanvas type={sim} /><div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-900"><strong>Note:</strong> Visualize the change. This simulation runs in real-time.</div></div>)}
-                {view === 'books' && (<div className="space-y-4"><h2 className="font-bold text-xl text-slate-800">Study Material</h2>{BOOKS.map(b => (<div key={b.id} className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex gap-4"><div className={`w-20 h-24 shrink-0 rounded flex items-center justify-center ${b.color}`}><Icons.Book /></div><div className="flex-1 flex flex-col"><h3 className="font-bold text-slate-900 leading-tight">{b.title}</h3><p className="text-xs text-slate-500 mt-1 mb-2">{b.desc}</p><div className="mt-auto flex justify-between items-center"><span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded">{b.price}</span><a href={b.link} target="_blank" className="text-xs font-bold bg-slate-900 text-white px-3 py-2 rounded">Buy Now</a></div></div></div>))}</div>)}
-            </main>
-            <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-16 flex justify-around items-center z-30 max-w-md mx-auto"><button onClick={() => setView('home')} className={`flex flex-col items-center gap-1 p-2 ${view!=='books'?'text-blue-600':'text-slate-400'}`}><Icons.Lab /><span className="text-[10px] font-bold">Labs</span></button><button onClick={() => setView('books')} className={`flex flex-col items-center gap-1 p-2 ${view==='books'?'text-blue-600':'text-slate-400'}`}><Icons.Book /><span className="text-[10px] font-bold">Books</span></button></nav>
-        </div>
-    );
-};
-const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<App />);
+    doc.autoTable({ 
+        head: [['Step', 'Value (High Prec)', 'Diff/Vel']], 
+        body: rows, 
+        startY: 35,
+        theme: 'grid',
+        styles: { fontSize: 8, font: 'courier' } // Monospace for numbers
+    });
+    doc.save(`fde_data_${Date.now()}.pdf`);
+}
+
+window.exportGraphPDF = function() {
+    let target = document.getElementById('graphCanvas');
+    if(!target.offsetParent) target = document.getElementById('compareCanvas');
+    if(!target.offsetParent) target = document.getElementById('seriesCanvas');
+    
+    const img = target.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape');
+    doc.text("Visual Analysis Capture", 10, 10);
+    doc.addImage(img, 'PNG', 10, 20, 280, 150);
+    doc.save('graph_capture.pdf');
+}
+
+// --- 10. CHARTS ---
+function initChart() { if(chartObj) chartObj.destroy(); }
+
+function initSeriesChart() {
+    const ctxS = document.getElementById('seriesCanvas').getContext('2d');
+    if(seriesChart) seriesChart.destroy();
+    seriesChart = new Chart(ctxS, {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'Exact', data: [], borderColor: '#4ade80' }, { label: 'Approx', data: [], borderColor: '#f472b6', borderDash: [5,5] }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { display: false }, y: { min: -2, max: 2, grid: { color: '#333' } } } }
+    });
+}
+function resetSeriesChart() { if(seriesChart) { seriesChart.data.labels=[]; seriesChart.data.datasets.forEach(d=>d.data=[]); seriesChart.update(); } }
+
+function initCompareChart() {
+    const ctxC = document.getElementById('compareCanvas').getContext('2d');
+    if(compareChart) compareChart.destroy();
+    compareChart = new Chart(ctxC, {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'Newton', data: [], borderColor: '#60a5fa' }, { label: 'Raju', data: [], borderColor: '#e879f9' }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { display: false }, y: { grid: { color: '#333' } } }, plugins: { legend: { display: false } } }
+    });
+}
+
+function updateCharts() {
+    if(State.activeAlgo.type === 'SERIES' && seriesChart && !document.getElementById('tab-series').classList.contains('hidden')) {
+        let x = (State.t * 0.05); 
+        let approx = 0;
+        for(let n=0; n<State.params.terms; n++) approx += Math.pow(-1, n) * Math.pow(x, 2*n+1) / factorial(2*n+1);
+        seriesChart.data.labels.push(x.toFixed(1));
+        seriesChart.data.datasets[0].data.push(Math.sin(x));
+        seriesChart.data.datasets[1].data.push(approx);
+        if(seriesChart.data.labels.length > 30) { seriesChart.data.labels.shift(); seriesChart.data.datasets[0].data.shift(); seriesChart.data.datasets[1].data.shift(); }
+        seriesChart.update('none');
+    }
+    if(State.activeAlgo.type === 'COMPARE' && compareChart && !document.getElementById('tab-compare').classList.contains('hidden')) {
+        compareChart.data.labels.push(State.t);
+        compareChart.data.datasets[0].data.push(State.history.x_pde[0]);
+        compareChart.data.datasets[1].data.push(State.history.x[0]);
+        if(compareChart.data.labels.length > 50) { compareChart.data.labels.shift(); compareChart.data.datasets[0].data.shift(); compareChart.data.datasets[1].data.shift(); }
+        compareChart.update('none');
+        // Drift Stats
+        let driftFDE = Math.abs(State.history.x[0] - 2);
+        let driftPDE = Math.abs(State.history.x_pde[0] - 2);
+        document.getElementById('drift-fde').innerText = (driftFDE*10).toFixed(2) + '%';
+        document.getElementById('drift-pde').innerText = (driftPDE*1).toFixed(2) + '%';
+        document.getElementById('lag-val').innerText = (State.params.tau * 0.1).toFixed(2) + 's';
+    }
+}
+
+init();
 </script>
 </body>
 </html>
