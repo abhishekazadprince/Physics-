@@ -1,13 +1,16 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#000000">
+    <meta name="description" content="Advanced Scientific Simulation Laboratory">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Raju's FDE Lab: Scientific Universe V10</title>
+    <title>Raju's FDE Lab: Scientific Universe V11</title>
+    
+    <!-- PWA Manifest Link -->
+    <link rel="manifest" href="manifest.json">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -25,7 +28,7 @@
         
         body { background-color: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; height: 100dvh; width: 100vw; margin: 0; padding: 0; position: fixed; transition: background 0.3s, color 0.3s; }
         
-        /* VIEWS */
+        /* VIEWS - Fixed Positioning */
         #view-home, #view-sim { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; backface-visibility: hidden; will-change: transform; transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); background: var(--bg-color); }
         #view-sim { transform: translateX(100%); z-index: 50; }
         
@@ -74,7 +77,7 @@
     <header class="p-6 safe-top bg-gradient-to-b from-slate-900 to-black border-b border-white/10 relative overflow-hidden shrink-0 transition-colors duration-300" id="home-header">
         <div class="absolute top-0 right-0 p-4 opacity-20"><i class="fas fa-atom text-6xl text-cyan-500"></i></div>
         <h1 class="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 bg-clip-text text-transparent relative z-10">Raju's FDE Lab</h1>
-        <p class="text-[10px] mt-1 tracking-[0.2em] font-bold uppercase relative z-10 opacity-70">Scientific Universe V10</p>
+        <p class="text-[10px] mt-1 tracking-[0.2em] font-bold uppercase relative z-10 opacity-70">Scientific Universe V11</p>
     </header>
     
     <div class="flex-1 overflow-y-auto p-4 space-y-8 safe-bottom relative z-10" id="algo-list">
@@ -311,10 +314,17 @@
     </div>
 </div>
 
+<!-- SERVICE WORKER REGISTRATION (PWA) -->
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(reg => console.log('SW Registered')).catch(err => console.log('SW Fail', err));
+}
+</script>
+
 <script>
 /**
- * RAJU'S FDE LAB: SCIENTIFIC UNIVERSE V10
- * Added: Double Pendulum, FitzHugh-Nagumo, Rössler, Poincaré Maps, Cinema Mode
+ * RAJU'S FDE LAB: SCIENTIFIC UNIVERSE V11
+ * Features: 3D Phase Space, PWA Fixes, Canvas Auto-Resize
  */
 
 const ALGO_DB = {
@@ -353,12 +363,11 @@ const ALGO_DB = {
     ]
 };
 
-// --- 2. GLOBAL STATE ---
 const State = {
     activeAlgo: null, running: false, t: 0,
     history: { x: [], v: [], x2: [], v2: [], z: [], x_pde: [], v_pde: [] },
     field: [], grid: [], gridV: [], particles: [],
-    gs: { u: [], v: [], w: 100, h: 100 }, // Gray Scott
+    gs: { u: [], v: [], w: 100, h: 100 },
     params: { k: 0.1, gamma: 0.05, tau: 20, zoom: 1.0, terms: 5, showLimits: false, color: '#06b6d4', glow: true, showTrajectory: true, showGhost: true, is3D: false, tilt: 45 },
     audio: { ctx: null, analyser: null, source: null, gain: null, enabled: false },
     rec: { recorder: null, stream: null, chunks: [], recording: false },
@@ -366,7 +375,6 @@ const State = {
     lyapunov: 0, theme: 'dark', cinema: false
 };
 
-// --- 3. INIT ---
 const cvs=document.getElementById('simCanvas'), ctx=cvs.getContext('2d');
 const phaseCvs=document.getElementById('phaseCanvas'), phaseCtx=phaseCvs.getContext('2d');
 const poinCvs=document.getElementById('poincareCanvas'), poinCtx=poinCvs.getContext('2d');
@@ -384,15 +392,12 @@ function init() {
 
 function launchSim(algo) {
     State.activeAlgo = algo; State.t = 0; State.running = true; State.lyapunov = 0;
-    
-    // Reset Data
     State.history = { x: [1], v: [0], x2: [0.5], v2: [0], z: [1], x_pde: [1], v_pde: [0] };
     if(algo.type.includes('PENDULUM_2')) { State.history.x=[Math.PI/2]; State.history.x2=[Math.PI/2]; State.history.v=[0]; State.history.v2=[0]; }
     if(algo.type==='FDE_1ST'||algo.type==='LORENZ'||algo.type==='ROSSLER') State.history.x=[0.1];
     if(algo.type==='LORENZ'||algo.type==='ROSSLER') { State.history.x2=[0]; State.history.z=[0]; }
-    if(algo.type==='NEURON') { State.history.x=[-1]; State.history.v=[0]; } // V, W
+    if(algo.type==='NEURON') { State.history.x=[-1]; State.history.v=[0]; }
     
-    // UI Reset
     clearPhase(); clearPoincare();
     if(chartObj)chartObj.destroy(); if(seriesChart)seriesChart.destroy(); if(compareChart)compareChart.destroy(); chartObj=null; seriesChart=null; compareChart=null;
     document.getElementById('sim-title').innerText = algo.title.toUpperCase();
@@ -430,7 +435,6 @@ function launchSim(algo) {
 
 function goBack() { State.running=false; document.getElementById('view-home').style.transform='translateX(0)'; document.getElementById('view-sim').style.transform='translateX(100%)'; }
 
-// --- 4. PHYSICS ENGINE ---
 function loop() {
     if(!State.running || !State.activeAlgo) { requestAnimationFrame(loop); return; }
     const dt = 0.1; const type = State.activeAlgo.type;
@@ -451,7 +455,6 @@ function loop() {
     } catch(e) { console.error(e); }
     
     State.t++;
-    // Lyapunov proxy
     if(State.t%10===0 && State.history.x.length>20) {
         let d = Math.abs(State.history.x[0]-State.history.x[20]);
         if(d>0) State.lyapunov = Math.log(d/0.001)/20;
@@ -504,37 +507,31 @@ function physicsCustom(dt) {
 }
 
 function physicsDoublePendulum(dt) {
-    // x=theta1, v=omega1, x2=theta2, v2=omega2
     let t1=State.history.x[0], w1=State.history.v[0], t2=State.history.x2[0], w2=State.history.v2[0];
-    let g=1, m1=1, m2=1, L1=1, L2=1; // normalized
+    let g=1, m1=1, m2=1, L1=1, L2=1;
     let num1 = -g*(2*m1+m2)*Math.sin(t1) - m2*g*Math.sin(t1-2*t2) - 2*Math.sin(t1-t2)*m2*(w2*w2*L2 + w1*w1*L1*Math.cos(t1-t2));
     let den1 = L1*(2*m1+m2-m2*Math.cos(2*t1-2*t2));
     let num2 = 2*Math.sin(t1-t2)*(w1*w1*L1*(m1+m2) + g*(m1+m2)*Math.cos(t1) + w2*w2*L2*m2*Math.cos(t1-t2));
     let den2 = L2*(2*m1+m2-m2*Math.cos(2*t1-2*t2));
-    
     let a1 = num1/den1; let a2 = num2/den2;
     w1+=a1*dt; t1+=w1*dt; w2+=a2*dt; t2+=w2*dt;
-    
     State.history.x.unshift(t1); State.history.v.unshift(w1);
     State.history.x2.unshift(t2); State.history.v2.unshift(w2); trimHist();
 }
 
 function physicsFitzHugh(dt) {
-    let v=State.history.x[0], w=State.history.v[0]; // v=voltage, w=recovery
-    let I = State.params.k; 
+    let v=State.history.x[0], w=State.history.v[0], I=State.params.k; 
     let dv = v - (v*v*v)/3 - w + I;
     let dw = 0.08 * (v + 0.7 - 0.8*w);
     State.history.x.unshift(v+dv*dt); State.history.v.unshift(w+dw*dt); trimHist();
 }
 
 function physicsRossler(dt) {
-    let x=State.history.x[0], y=State.history.x2[0], z=State.history.z[0];
-    let a=0.2, b=0.2, c=5.7;
+    let x=State.history.x[0], y=State.history.x2[0], z=State.history.z[0], a=0.2, b=0.2, c=5.7;
     let dx = (-y-z)*dt*0.5, dy = (x+a*y)*dt*0.5, dz = (b + z*(x-c))*dt*0.5;
     State.history.x.unshift(x+dx); State.history.x2.unshift(y+dy); State.history.z.unshift(z+dz); State.history.v.unshift(dx); trimHist();
 }
 
-// ... (Other Physics Functions: Mackey, Coupled, Lotka, Bruss, Lorenz, SIR maintained) ...
 function physicsMackey(dt){let x=State.history.x[0],xt=getDelayed(State.history.x,State.params.tau);let dx=(State.params.k*2*xt)/(1+Math.pow(xt,10))-0.1*x;State.history.x.unshift(x+dx*dt);State.history.v.unshift(dx);trimHist()}
 function physicsCoupled(dt){if(State.activeAlgo.type==='COUPLED_LV'){physicsLotka(dt);return;}if(State.activeAlgo.type==='COUPLED_BRUSS'){physicsBruss(dt);return;}let k=State.params.k,t=State.params.tau,x1=State.history.x[0],v1=State.history.v[0],x2=State.history.x2[0],v2=State.history.v2[0];let x1t=getDelayed(State.history.x,t),x2t=getDelayed(State.history.x2,t);v1+=(-x1+k*(x2t-x1)-0.05*v1)*dt;x1+=v1*dt;v2+=(-x2+k*(x1t-x2)-0.05*v2)*dt;x2+=v2*dt;State.history.x.unshift(x1);State.history.v.unshift(v1);State.history.x2.unshift(x2);State.history.v2.unshift(v2);trimHist()}
 function physicsLotka(dt){let x=State.history.x[0],y=State.history.x2[0];let dx=(0.1*x-State.params.k*x*y)*dt,dy=(State.params.k*x*y-0.2*y)*dt;State.history.x.unshift(x+dx);State.history.x2.unshift(y+dy);State.history.v.unshift(dx);trimHist()}
@@ -543,7 +540,6 @@ function physicsLorenz(dt){let x=State.history.x[0],y=State.history.x2[0],z=Stat
 function physicsSIR(dt){let s=State.history.x[0],i=State.history.x2[0],r=State.history.z[0]||0,b=State.params.k,g=0.1;let ds=-b*s*i*dt,di=(b*s*i-g*i)*dt,dr=g*i*dt;State.history.x.unshift(s+ds);State.history.x2.unshift(i+di);State.history.z.unshift(r+dr);State.history.v.unshift(ds);trimHist()}
 function trimHist(){if(State.history.x.length>2000)Object.values(State.history).forEach(a=>a.length>2000&&a.pop())}
 
-// GRAY-SCOTT ENGINE
 function initGrayScott() {
     let sz = 64; State.gs = { u: new Float32Array(sz*sz).fill(1), v: new Float32Array(sz*sz).fill(0), size: sz };
     for(let y=28;y<36;y++)for(let x=28;x<36;x++) State.gs.v[y*sz+x] = 1;
@@ -577,14 +573,12 @@ function drawGrayScott() {
     ctx.imageSmoothingEnabled = false; ctx.drawImage(tempCvs, 0, 0, cvs.width, cvs.height);
 }
 
-// ... Grid/Field Init ...
 function initGrid(){State.grid=new Array(100).fill(0);State.gridV=new Array(100).fill(0);State.field=new Array(100).fill(0).map((_,i)=>({r:Math.exp(-Math.pow((i-50)/5,2)),i:0}));for(let i=45;i<55;i++)State.grid[i]=Math.sin((i-45)/10*Math.PI)}
 function gridStep(dt){let g=State.grid,gv=State.gridV,ng=[...g],ngv=[...gv];let isThermo=State.activeAlgo.type.includes('THERMO');let inertia=isThermo?State.params.tau*0.02:1.0;for(let i=1;i<99;i++){let acc=(0.5*(g[i-1]+g[i+1]-2*g[i])-(isThermo?0:0.01)*gv[i])/(inertia+0.1);ngv[i]+=acc*dt;ng[i]+=ngv[i]*dt}State.grid=ng;State.gridV=ngv}
 function fieldStep(dt){let f=State.field,nf=new Array(f.length);nf[0]=nf[f.length-1]={r:0,i:0};for(let i=1;i<f.length-1;i++){let lr=f[i-1].r+f[i+1].r-2*f[i].r,li=f[i-1].i+f[i+1].i-2*f[i].i;let V=0.01*Math.pow(i-50,2)+State.params.k*(Math.pow(f[i].r,2)+Math.pow(f[i].i,2));nf[i]={r:f[i].r+(-0.5*li+V*f[i].i)*dt,i:f[i].i-(-0.5*lr+V*f[i].r)*dt}}State.field=nf}
 function initParticles(){State.particles=[{x:0,y:0,vx:0,vy:0,fixed:true},{x:100,y:50,vx:0,vy:2,fixed:false}]}
 function emStep(dt){let p=State.particles,tau=State.params.tau;p[0].y=50*Math.sin(State.t*0.05);let retY=50*Math.sin((State.t-tau)*0.05);let dx=p[1].x-p[0].x,dy=p[1].y-retY,dist=Math.sqrt(dx*dx+dy*dy+10);let F=1000/(dist*dist);if(!p[1].fixed){p[1].vx-=F*(dx/dist)*dt;p[1].vy-=F*(dy/dist)*dt;p[1].x+=p[1].vx*dt;p[1].y+=p[1].vy*dt}}
 
-// --- VISUALIZATION ---
 function drawWorld() {
     ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-color'); ctx.fillRect(0,0,cvs.width,cvs.height);
     const cx=cvs.width/2, cy=cvs.height/2, zoom=State.params.zoom;
@@ -610,14 +604,12 @@ function drawWorld() {
 
     ctx.strokeStyle = State.params.color; ctx.lineWidth = 2/zoom;
 
-    // Drawing Logic
     if(State.activeAlgo.type==='PENDULUM_2') {
         let t1=State.history.x[0], t2=State.history.x2[0];
         let x1=100*Math.sin(t1), y1=100*Math.cos(t1);
         let x2=x1+100*Math.sin(t2), y2=y1+100*Math.cos(t2);
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
         ctx.fillStyle=State.params.color; ctx.beginPath(); ctx.arc(x1,y1,5,0,6.28); ctx.fill(); ctx.beginPath(); ctx.arc(x2,y2,5,0,6.28); ctx.fill();
-        // Trace
         ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.beginPath();
         State.history.x2.slice(0,500).forEach((val, i)=>{
             let tx1=100*Math.sin(State.history.x[i]), ty1=100*Math.cos(State.history.x[i]);
@@ -675,15 +667,32 @@ function drawPhaseSpace() {
     if(document.getElementById('tab-phase').classList.contains('hidden')) return;
     phaseCtx.fillStyle = State.theme==='light'?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.05)'; phaseCtx.fillRect(0,0,phaseCvs.width, phaseCvs.height);
     const cx=phaseCvs.width/2, cy=phaseCvs.height/2, scale=40;
-    let x=State.history.x[0], y=State.history.v[0], xp=State.history.x[1], yp=State.history.v[1];
+    
+    // 3D Rotation for Phase Space too!
+    const rad = State.params.is3D ? State.params.tilt*Math.PI/180 : 0;
+    function proj(x, y, z=0) {
+        if(!State.params.is3D) return {x,y};
+        let yr = y*Math.cos(rad) - z*Math.sin(rad);
+        let zr = y*Math.sin(rad) + z*Math.cos(rad);
+        let s = 500/(500+zr); return {x:x*s, y:yr*s};
+    }
+
+    let x=State.history.x[0], y=State.history.v[0], z=0, xp=State.history.x[1], yp=State.history.v[1], zp=0;
     if(State.activeAlgo.type.includes('COUPLED')||State.activeAlgo.type==='LORENZ'||State.activeAlgo.type==='SIR') { y = State.history.x2[0]; yp = State.history.x2[1]; }
+    if(State.activeAlgo.type==='LORENZ') { z = State.history.z[0]; zp = State.history.z[1]; }
+
+    let p1 = proj(x*scale, y*scale, z*scale);
+    let p2 = proj(xp*scale, yp*scale, zp*scale);
+    
+    phaseCtx.save(); phaseCtx.translate(cx, cy);
     phaseCtx.strokeStyle = '#a855f7'; phaseCtx.lineWidth=2;
-    phaseCtx.beginPath(); phaseCtx.moveTo(cx+xp*scale, cy-yp*scale); phaseCtx.lineTo(cx+x*scale, cy-y*scale); phaseCtx.stroke();
+    phaseCtx.beginPath(); phaseCtx.moveTo(p2.x, -p2.y); phaseCtx.lineTo(p1.x, -p1.y); phaseCtx.stroke();
+    phaseCtx.restore();
 }
 
 function drawPoincare() {
     if(document.getElementById('tab-poincare').classList.contains('hidden')) return;
-    if(State.t % 20 === 0) { // Stroboscopic
+    if(State.t % 20 === 0) { 
         poinCtx.fillStyle = '#f97316';
         let x = State.history.x[0], y = State.history.v[0];
         if(State.activeAlgo.type==='LORENZ') { y = State.history.z[0]; }
@@ -693,7 +702,6 @@ function drawPoincare() {
     }
 }
 
-// UI LOGIC
 function applyCustomEq() {
     const dxCode = document.getElementById('inp-custom-dx').value;
     const dvCode = document.getElementById('inp-custom-dv').value;
@@ -726,8 +734,15 @@ function toggleRecording() {
     }
 }
 
-// Boilerplate (Resize, Bind, Charts)
-function resize(){cvs.width=window.innerWidth;cvs.height=window.innerHeight;[phaseCvs,bifCvs,specCvs,poinCvs].forEach(c=>{if(c){c.width=c.clientWidth;c.height=c.clientHeight}})}
+function resize(){
+    cvs.width=window.innerWidth; cvs.height=window.innerHeight; 
+    // CRITICAL FIX: Only resize if element is visible to prevent 0x0 errors
+    [phaseCvs, bifCvs, specCvs, poinCvs].forEach(c => { 
+        if(c && c.offsetParent !== null) { 
+            c.width = c.clientWidth; c.height = c.clientHeight; 
+        } 
+    });
+}
 function bindInput(id,p){document.getElementById(id).addEventListener('input',e=>{State.params[p]=parseFloat(e.target.value);document.getElementById(`lbl-${p}`).innerText=e.target.value;renderMath()})}
 function renderMath(){if(State.activeAlgo){let eq=State.activeAlgo.eq.replace(/k/g,State.params.k).replace(/\\tau/g,State.params.tau);try{katex.render(eq,document.getElementById('katex-eq'),{throwOnError:false})}catch(e){}}}
 function applyPreset(p){
@@ -739,16 +754,31 @@ function applyPreset(p){
 function clearPhase(){phaseCvs.width=phaseCvs.clientWidth;phaseCvs.height=phaseCvs.clientHeight;phaseCtx.clearRect(0,0,phaseCvs.width,phaseCvs.height)}
 function clearPoincare(){poinCvs.width=poinCvs.clientWidth;poinCvs.height=poinCvs.clientHeight;poinCtx.clearRect(0,0,poinCvs.width,poinCvs.height)}
 function updateTable(){const b=document.getElementById('data-body'); if(document.getElementById('tab-data').classList.contains('hidden'))return;let v=State.history.x[0]||0,d=State.history.v[0]||0;let r=document.createElement('tr');r.innerHTML=`<td class="p-2 border-b border-white/5 text-slate-500">${State.t}</td><td class="p-2 border-b border-white/5 text-cyan-400">${v.toFixed(3)}</td><td class="p-2 border-b border-white/5 text-pink-400">${d.toFixed(3)}</td>`;b.insertBefore(r,b.firstChild);if(b.children.length>20)b.removeChild(b.lastChild);}
-function setTab(name){document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('text-cyan-400','border-cyan-400','opacity-100');b.classList.add('opacity-60','border-transparent')});const btn=document.querySelector(`button[onclick="setTab('${name}')"]`);if(btn){btn.classList.remove('opacity-60','border-transparent');btn.classList.add('text-cyan-400','border-cyan-400','opacity-100')}['controls','phase','poincare','graph','bifurcation','spectrum','data','series','compare','info'].forEach(t=>document.getElementById(`tab-${t}`).classList.add('hidden'));document.getElementById(`tab-${name}`).classList.remove('hidden');}
+function setTab(name){
+    document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('text-cyan-400','border-cyan-400','opacity-100');b.classList.add('opacity-60','border-transparent')});
+    const btn=document.querySelector(`button[onclick="setTab('${name}')"]`);
+    if(btn){btn.classList.remove('opacity-60','border-transparent');btn.classList.add('text-cyan-400','border-cyan-400','opacity-100')}
+    ['controls','phase','poincare','graph','bifurcation','spectrum','data','series','compare','info'].forEach(t=>document.getElementById(`tab-${t}`).classList.add('hidden'));
+    document.getElementById(`tab-${name}`).classList.remove('hidden');
+    // FORCE RESIZE on tab switch to fix 0-width bugs
+    setTimeout(resize, 50); 
+}
 function toggleDrawer(){const d=document.getElementById('drawer');d.style.transform=d.style.transform==='translateY(70%)'?'translateY(0)':'translateY(70%)'}
 function toggleFocusMode(){const d=document.getElementById('drawer'),h=document.getElementById('sim-header');d.classList.toggle('focus-hide');h.classList.toggle('header-hide')}
 function togglePause(){State.running=!State.running;document.getElementById('play-btn').innerHTML=State.running?'<i class="fas fa-pause text-xs"></i>':'<i class="fas fa-play text-xs"></i>';document.getElementById('sim-status').innerText=State.running?'RUNNING':'PAUSED';if(State.running)loop()}
 function showToast(msg){const t=document.getElementById('toast');document.getElementById('toast-msg').innerText=msg;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2000)}
 function updateTimeline(){const m=["476 CE: Aryabhata","1400 CE: Madhava","1687 CE: Newton","1977: Chaos","FUTURE: Raju"];document.getElementById('timeline-info').innerText=m[document.getElementById('timeline-slider').value]}
 function initAudio(){if(State.audio.ctx)return;const AC=window.AudioContext||window.webkitAudioContext;State.audio.ctx=new AC();State.audio.analyser=State.audio.ctx.createAnalyser();State.audio.analyser.fftSize=256;State.audio.osc=State.audio.ctx.createOscillator();State.audio.gain=State.audio.ctx.createGain();State.audio.osc.connect(State.audio.gain);State.audio.gain.connect(State.audio.analyser);State.audio.analyser.connect(State.audio.ctx.destination);State.audio.osc.start();State.audio.gain.gain.value=0}
-function toggleAudio(){if(!State.audio.ctx)initAudio();State.audio.enabled=!State.audio.enabled;document.getElementById('btn-audio').innerHTML=State.audio.enabled?'<i class="fas fa-volume-up text-cyan-400"></i>':'<i class="fas fa-volume-mute text-xs opacity-70"></i>';if(State.audio.ctx.state==='suspended')State.audio.ctx.resume();showToast(State.audio.enabled?"Audio ON":"Audio OFF")}
+function toggleAudio(){
+    if(!State.audio.ctx)initAudio();
+    // Resume context on user gesture
+    if(State.audio.ctx.state==='suspended') State.audio.ctx.resume();
+    State.audio.enabled=!State.audio.enabled;
+    document.getElementById('btn-audio').innerHTML=State.audio.enabled?'<i class="fas fa-volume-up text-cyan-400"></i>':'<i class="fas fa-volume-mute text-xs opacity-70"></i>';
+    showToast(State.audio.enabled?"Audio ON":"Audio OFF")
+}
 function updateAudio(val){if(!State.audio.enabled)return;State.audio.osc.frequency.setTargetAtTime(Math.max(50,Math.min(1000,200+val*100)),State.audio.ctx.currentTime,0.1);State.audio.gain.gain.setTargetAtTime(0.05,State.audio.ctx.currentTime,0.1)}
-function drawSpectrum(){if(!State.audio.analyser)return;const w=specCvs.width=specCvs.clientWidth,h=specCvs.height=specCvs.clientHeight,c=specCvs.getContext('2d');const d=new Uint8Array(State.audio.analyser.frequencyBinCount);State.audio.analyser.getByteFrequencyData(d);c.clearRect(0,0,w,h);for(let i=0,x=0;i<d.length;i++){let bh=d[i]/2;c.fillStyle=`rgb(${bh+100},50,150)`;c.fillRect(x,h-bh,(w/d.length)*2.5,bh);x+=(w/d.length)*2.5+1}}
+function drawSpectrum(){if(!State.audio.analyser)return;const w=specCvs.width,h=specCvs.height,c=specCvs.getContext('2d');const d=new Uint8Array(State.audio.analyser.frequencyBinCount);State.audio.analyser.getByteFrequencyData(d);c.clearRect(0,0,w,h);for(let i=0,x=0;i<d.length;i++){let bh=d[i]/2;c.fillStyle=`rgb(${bh+100},50,150)`;c.fillRect(x,h-bh,(w/d.length)*2.5,bh);x+=(w/d.length)*2.5+1}}
 async function runBifurcation(){const c=document.getElementById('bifCanvas').getContext('2d'),w=bifCvs.width,h=bifCvs.height;c.fillStyle='#000';c.fillRect(0,0,w,h);document.getElementById('bif-overlay').classList.remove('hidden');const st=100,tr=500,sa=200,ot=State.params.tau;c.strokeStyle='#333';c.beginPath();c.moveTo(0,h/2);c.lineTo(w,h/2);c.stroke();for(let i=0;i<st;i++){let ct=(i/st)*100,sx=[1],sv=[0];for(let t=0;t<tr+sa;t++){let idx=Math.floor(ct),xo=(idx<sx.length)?sx[idx]:0,dx=0;if(State.activeAlgo.type.includes('MACKEY')){let beta=State.params.k*2;dx=(beta*xo)/(1+Math.pow(xo,10))-0.1*sx[0];sx.unshift(sx[0]+dx*0.1)}else{let a=-State.params.k*xo-0.05*sv[0];sv.unshift(sv[0]+a*0.1);sx.unshift(sx[0]+sv[0]*0.1)}if(sx.length>200){sx.pop();if(sv.length>0)sv.pop()}if(t>tr&&sx[1]>sx[0]&&sx[1]>sx[2]){c.fillStyle='#4ade80';c.fillRect((i/st)*w,h/2-sx[1]*(h/4),1,1)}}document.getElementById('scan-progress').innerText=Math.round((i/st)*100)+'%';await new Promise(r=>setTimeout(r,0))}document.getElementById('bif-overlay').classList.add('hidden');State.params.tau=ot}
 function initChart(){if(chartObj)chartObj.destroy();chartObj=new Chart(document.getElementById('graphCanvas').getContext('2d'),{type:'line',data:{labels:[],datasets:[{label:'X',data:[],borderColor:'#06b6d4',borderWidth:2,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:false,scales:{x:{display:false},y:{grid:{color:'#333'}}},plugins:{legend:{display:false}}}})}
 function initSeriesChart(){if(seriesChart)seriesChart.destroy();seriesChart=new Chart(document.getElementById('seriesCanvas').getContext('2d'),{type:'line',data:{labels:[],datasets:[{label:'Exact',data:[],borderColor:'#4ade80',borderWidth:2,pointRadius:0},{label:'Approx',data:[],borderColor:'#f472b6',borderDash:[5,5],borderWidth:2,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:false,scales:{x:{display:false},y:{grid:{color:'#333'}}}}})}
