@@ -4,309 +4,372 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#000000">
-    <meta name="description" content="Advanced Scientific Simulation Laboratory">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Raju's FDE Lab: Scientific Universe V11</title>
+    <meta name="description" content="Scientific Universe V25: The Complete Simulation Suite">
+    <title>Scientific Universe V25 [Precision Update]</title>
     
-    <!-- PWA Manifest Link -->
-    <link rel="manifest" href="manifest.json">
-    
+    <!-- LIBRARIES -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- PDF GENERATION -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
     <style>
-        /* CORE RESET & LAYOUT */
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        :root { --bg-color: #000; --text-color: #fff; --glass-bg: rgba(8, 10, 20, 0.95); --panel-bg: rgba(255,255,255,0.03); --border: rgba(255,255,255,0.1); }
-        .theme-light { --bg-color: #f8fafc; --text-color: #0f172a; --glass-bg: rgba(255, 255, 255, 0.95); --panel-bg: rgba(0,0,0,0.03); --border: rgba(0,0,0,0.1); }
+        /* --- CORE RESET --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: none; }
+        :root { --bg: #000000; --accent: #06b6d4; --glass: rgba(10, 10, 18, 0.90); --border: rgba(255,255,255,0.15); }
+        body { background: var(--bg); color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; height: 100dvh; width: 100vw; overflow: hidden; margin: 0; position: fixed; }
         
-        body { background-color: var(--bg-color); color: var(--text-color); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; height: 100dvh; width: 100vw; margin: 0; padding: 0; position: fixed; transition: background 0.3s, color 0.3s; }
-        
-        /* VIEWS - Fixed Positioning */
-        #view-home, #view-sim { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; backface-visibility: hidden; will-change: transform; transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); background: var(--bg-color); }
-        #view-sim { transform: translateX(100%); z-index: 50; }
+        /* LAYOUT & ANIMATION */
+        #app-container { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
+        .page { position: absolute; inset: 0; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); background: var(--bg); z-index: 10; display: flex; flex-direction: column; }
+        .page.hidden-right { transform: translateX(100%); z-index: 20; }
+        .page.hidden-left { transform: translateX(-30%); opacity: 0.5; }
         
         /* CANVAS */
-        canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+        canvas { width: 100%; height: 100%; outline: none; display: block; }
         
-        /* UI LAYERS */
-        .glass { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border); box-shadow: 0 -10px 40px rgba(0,0,0,0.1); }
-        .glass-panel { background: var(--panel-bg); border: 1px solid var(--border); backdrop-filter: blur(4px); }
+        /* UI ELEMENTS */
+        .glass { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border); }
+        .glass-panel { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 0.5rem; }
+        .btn-round { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.08); border: 1px solid var(--border); transition: 0.2s; color: white; cursor: pointer; }
+        .btn-round:active { transform: scale(0.9); background: var(--accent); color: black; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 9px; font-family: monospace; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 4px 0; }
+        .stat-lbl { opacity: 0.6; }
+        .stat-val { color: var(--accent); }
+        .disabled-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; text-transform:uppercase; font-size:10px; font-weight:bold; letter-spacing:1px; color:#fff; z-index:50; backdrop-filter:blur(2px); }
         
-        /* UTILS */
-        .neon-text { text-shadow: 0 0 10px currentColor; }
-        .theme-light .neon-text { text-shadow: none; font-weight: 800; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .safe-top { padding-top: env(safe-area-inset-top); }
-        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        /* TAB SYSTEM */
+        .tab-scroller { display: flex; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; white-space: nowrap; mask-image: linear-gradient(to right, black 90%, transparent 100%); }
+        .tab-scroller::-webkit-scrollbar { display: none; }
+        .tab-btn { padding: 12px 16px; font-size: 10px; font-weight: 800; opacity: 0.5; transition: 0.2s; border-bottom: 2px solid transparent; letter-spacing: 0.05em; color: #94a3b8; }
+        .tab-btn.active { opacity: 1; color: var(--accent); border-color: var(--accent); }
         
-        /* TYPOGRAPHY */
-        .prose-sci p { margin-bottom: 0.85rem; line-height: 1.7; font-size: 0.85rem; opacity: 0.8; }
-        .prose-sci h4 { color: #22d3ee; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.08em; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
-        .theme-light .prose-sci h4 { color: #0284c7; }
-        .prose-sci ul { list-style-type: disc; padding-left: 1rem; margin-bottom: 1rem; font-size: 0.8rem; opacity: 0.7; }
-        .prose-sci li { margin-bottom: 0.4rem; }
+        /* SLIDERS */
+        input[type=range] { -webkit-appearance: none; background: transparent; height: 24px; width: 100%; cursor: pointer; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--accent); margin-top: -6px; box-shadow: 0 0 10px var(--accent); transition: transform 0.1s; }
+        input[type=range]:active::-webkit-slider-thumb { transform: scale(1.3); }
 
-        /* SLIDERS & GRIDS */
-        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #06b6d4; margin-top: -6px; box-shadow: 0 0 10px #06b6d4; cursor: grab; transition: transform 0.1s; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #334155; border-radius: 2px; }
-        .theme-light input[type=range]::-webkit-slider-runnable-track { background: #cbd5e1; }
-        
-        .phase-grid { background-image: radial-gradient(circle, var(--border) 1px, transparent 1px); background-size: 20px 20px; }
-        .spec-grid { background: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 40px 40px; }
-        
-        /* CUSTOM EQ INPUT */
-        .code-input { font-family: 'Fira Code', monospace; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: #4ade80; border-radius: 0.5rem; padding: 0.5rem; width: 100%; font-size: 0.75rem; outline: none; }
-        .theme-light .code-input { background: rgba(255,255,255,0.8); color: #166534; border-color: #cbd5e1; }
+        /* TEXT SECTIONS */
+        .info-section h3 { color: var(--accent); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.25rem; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px; margin-top: 1rem; }
+        .info-section p { font-size: 0.8rem; line-height: 1.6; opacity: 0.8; margin-bottom: 0.5rem; }
+        .info-section li { font-size: 0.8rem; opacity: 0.7; list-style: disc; margin-left: 1rem; }
+
+        /* UTILS */
+        .safe-top { padding-top: max(16px, env(safe-area-inset-top)); }
+        .safe-bottom { padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+        .spinner { border: 2px solid rgba(255,255,255,0.1); border-left-color: var(--accent); border-radius: 50%; width: 16px; height: 16px; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         
         /* CINEMA MODE */
-        .cinema-hidden { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+        .cinema-mode #ui-layer, .cinema-mode #drawer { display: none !important; }
+        .cinema-mode canvas { cursor: none; }
     </style>
 </head>
 <body>
 
-<!-- HOME VIEW -->
-<div id="view-home" class="flex flex-col">
-    <header class="p-6 safe-top bg-gradient-to-b from-slate-900 to-black border-b border-white/10 relative overflow-hidden shrink-0 transition-colors duration-300" id="home-header">
-        <div class="absolute top-0 right-0 p-4 opacity-20"><i class="fas fa-atom text-6xl text-cyan-500"></i></div>
-        <h1 class="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 bg-clip-text text-transparent relative z-10">Raju's FDE Lab</h1>
-        <p class="text-[10px] mt-1 tracking-[0.2em] font-bold uppercase relative z-10 opacity-70">Scientific Universe V11</p>
-    </header>
+<div id="app-container">
     
-    <div class="flex-1 overflow-y-auto p-4 space-y-8 safe-bottom relative z-10" id="algo-list">
-        <!-- JS Populated -->
-    </div>
-</div>
-
-<!-- SIMULATION VIEW -->
-<div id="view-sim" class="flex flex-col">
-    
-    <canvas id="simCanvas" class="absolute inset-0 z-0 cursor-crosshair"></canvas>
-
-    <!-- OVERLAY UI -->
-    <div class="absolute inset-0 z-10 flex flex-col pointer-events-none" id="ui-layer">
+    <!-- === HOME SCREEN === -->
+    <div id="page-home" class="page">
+        <header class="p-6 safe-top bg-gradient-to-b from-slate-900 to-transparent border-b border-white/5 shrink-0">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500">FDE Lab</h1>
+                    <p class="text-[10px] uppercase tracking-[0.3em] opacity-60 font-mono mt-1">Scientific Universe V25</p>
+                </div>
+                <i class="fas fa-atom text-4xl text-cyan-500/20 rotate-12"></i>
+            </div>
+        </header>
         
-        <!-- HEADER -->
-        <div id="sim-header" class="pointer-events-auto bg-gradient-to-b from-black/90 via-black/60 to-transparent p-3 safe-top flex items-center justify-between transition-all duration-500 backdrop-blur-sm">
-            <button onclick="goBack()" class="w-9 h-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center active:bg-white/20 transition hover:bg-white/20 hover:scale-105 border border-white/5 shadow-lg">
-                <i class="fas fa-arrow-left text-sm"></i>
-            </button>
+        <div class="flex-1 overflow-y-auto p-4 safe-bottom space-y-6" id="algo-list">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <!-- === SIMULATION SCREEN === -->
+    <div id="page-sim" class="page hidden-right">
+        
+        <!-- CANVAS -->
+        <canvas id="simCanvas" class="absolute inset-0 z-0"></canvas>
+        
+        <!-- UI OVERLAY -->
+        <div id="ui-layer" class="absolute inset-0 z-10 flex flex-col pointer-events-none">
             
-            <div class="text-center">
-                <div id="sim-title" class="text-[10px] font-black text-cyan-400 neon-text tracking-widest uppercase mb-0.5">SIMULATION</div>
-                <div class="flex gap-2 justify-center">
-                    <span class="text-[8px] opacity-70 font-mono bg-white/5 px-1.5 py-0.5 rounded border border-white/5" id="sim-status">INIT</span>
-                    <span class="text-[8px] text-yellow-400 font-mono hidden bg-yellow-900/30 px-1.5 py-0.5 rounded border border-yellow-500/30" id="rec-status">REC ●</span>
+            <!-- TOP BAR -->
+            <div class="pointer-events-auto bg-gradient-to-b from-black/90 to-transparent p-4 safe-top flex items-center justify-between">
+                <button onclick="App.goBack()" class="btn-round"><i class="fas fa-arrow-left"></i></button>
+                <div class="text-center">
+                    <div id="sim-title" class="text-[10px] font-black text-cyan-400 tracking-widest uppercase drop-shadow-lg">SIMULATION</div>
+                    <div class="flex gap-2 justify-center items-center mt-1">
+                        <span class="text-[8px] bg-white/10 px-1.5 py-0.5 rounded text-white/70 font-mono border border-white/5" id="sim-status">RUNNING</span>
+                        <span id="rec-dot" class="hidden w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_red]"></span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="App.toggleCinema()" class="btn-round text-yellow-400 border-yellow-500/30" title="Full Screen"><i class="fas fa-expand text-xs"></i></button>
+                    <button onclick="App.togglePause()" id="play-btn" class="btn-round bg-cyan-600 border-none text-black shadow-lg shadow-cyan-500/20"><i class="fas fa-pause text-xs"></i></button>
                 </div>
             </div>
 
-            <div class="flex gap-2">
-                <button onclick="toggleCinema()" class="w-9 h-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center active:bg-white/20 transition hover:bg-white/20 border border-white/5" title="Cinema Mode">
-                    <i class="fas fa-expand text-xs opacity-70"></i>
-                </button>
-                <button onclick="toggleTheme()" class="w-9 h-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center active:bg-white/20 transition hover:bg-white/20 border border-white/5" title="Theme">
-                    <i class="fas fa-sun text-xs opacity-70"></i>
-                </button>
-                <button onclick="toggleRecording()" id="btn-rec" class="w-9 h-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center active:bg-white/20 transition hover:bg-white/20 border border-white/5 text-red-400" title="Record Video">
-                    <i class="fas fa-video text-xs"></i>
-                </button>
-                <button onclick="toggleAudio()" id="btn-audio" class="w-9 h-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center active:bg-white/20 transition hover:bg-white/20 border border-white/5" title="Sonification">
-                    <i class="fas fa-volume-mute text-xs opacity-70"></i>
-                </button>
-                <button onclick="toggleFocusMode()" class="w-9 h-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center active:bg-white/20 transition hover:bg-white/20 border border-white/5" title="Focus Mode">
-                    <i class="fas fa-eye text-xs opacity-70"></i>
-                </button>
-                <button onclick="togglePause()" id="play-btn" class="w-9 h-9 rounded-full bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center justify-center active:scale-95 transition hover:bg-cyan-400 hover:scale-105 border border-cyan-300">
-                    <i class="fas fa-pause text-xs"></i>
-                </button>
+            <!-- GESTURE HINT -->
+            <div class="flex-1 flex items-end justify-center pb-8">
+                <div id="gesture-hint" class="bg-black/60 backdrop-blur px-4 py-2 rounded-full border border-white/10 text-[10px] text-cyan-400 font-mono opacity-0 transition-opacity duration-500 flex items-center gap-2">
+                    <i class="fas fa-hand-pointer"></i> <span>2-Finger Pan/Zoom • 1-Finger Orbit</span>
+                </div>
+            </div>
+            
+            <!-- TOAST -->
+            <div id="toast" class="absolute top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-4 py-2 rounded-full shadow-2xl border border-white/10 opacity-0 transition-opacity pointer-events-none flex items-center gap-2 z-50">
+                <i class="fas fa-info-circle text-cyan-400"></i> <span id="toast-msg"></span>
             </div>
         </div>
 
-        <!-- TOAST -->
-        <div id="toast" class="absolute top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-4 py-2 rounded-full shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none border border-white/10 flex items-center gap-2 z-50">
-            <i class="fas fa-info-circle text-cyan-400"></i> <span id="toast-msg">Notification</span>
-        </div>
-
-        <!-- TIMELINE OVERLAY -->
-        <div id="overlay-container" class="flex-1 pointer-events-none relative">
-             <div id="timeline-ui" class="absolute bottom-4 left-4 right-4 pointer-events-auto hidden transition-all duration-300">
-                 <div class="glass-panel p-4 rounded-xl shadow-2xl">
-                     <div class="flex justify-between text-[9px] opacity-70 mb-2 font-mono tracking-wider">
-                         <span>ARYABHATA (476 CE)</span>
-                         <span>FUTURE (FDE)</span>
-                     </div>
-                     <input type="range" id="timeline-slider" min="0" max="4" step="1" value="0" class="w-full h-2 mb-3">
-                     <div id="timeline-info" class="text-xs text-center text-cyan-500 min-h-[3rem] flex items-center justify-center font-bold leading-tight px-4 border-l-2 border-cyan-500/50 bg-cyan-500/10 rounded-r"></div>
-                 </div>
-             </div>
-        </div>
-
-        <!-- DRAWER -->
-        <div id="drawer" class="pointer-events-auto h-[60vh] glass rounded-t-3xl flex flex-col shadow-[0_-10px_50px_rgba(0,0,0,0.2)] translate-y-[0] transition-transform duration-500 ease-out">
-            <div class="w-full h-6 flex items-center justify-center cursor-pointer hover:bg-white/5 transition group" onclick="toggleDrawer()">
-                <div class="w-10 h-1 bg-white/20 rounded-full group-hover:bg-cyan-400/50 transition-colors"></div>
+        <!-- DRAWER (Bottom Sheet) -->
+        <div id="drawer" class="absolute bottom-0 left-0 right-0 z-20 pointer-events-auto flex flex-col h-[65dvh] transition-transform duration-300 translate-y-0 bg-slate-950/95 backdrop-blur-2xl border-t border-white/10 rounded-t-3xl shadow-[0_-10px_60px_rgba(0,0,0,0.7)]">
+            
+            <!-- HANDLE -->
+            <div class="w-full h-7 flex items-center justify-center shrink-0 cursor-pointer active:opacity-50" onclick="App.toggleDrawer()">
+                <div class="w-12 h-1 bg-white/20 rounded-full"></div>
             </div>
 
             <!-- TABS -->
-            <div class="flex border-b border-white/10 px-2 overflow-x-auto no-scrollbar">
-                <button onclick="setTab('controls')" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest text-cyan-400 border-b-2 border-cyan-400 hover:opacity-70 transition">CONTROLS</button>
-                <button onclick="setTab('phase')" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest text-purple-400 border-b-2 border-transparent hover:opacity-70 transition"><i class="fas fa-project-diagram mr-1"></i>PHASE</button>
-                <button onclick="setTab('poincare')" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest text-orange-400 border-b-2 border-transparent hover:opacity-70 transition"><i class="fas fa-braille mr-1"></i>POINCARÉ</button>
-                <button onclick="setTab('graph')" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest opacity-60 border-b-2 border-transparent hover:opacity-100 transition">GRAPH</button>
-                <button onclick="setTab('bifurcation')" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest text-green-400 border-b-2 border-transparent hover:opacity-70 transition"><i class="fas fa-code-branch mr-1"></i>BIFUR</button>
-                <button onclick="setTab('spectrum')" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest text-pink-400 border-b-2 border-transparent hover:opacity-70 transition"><i class="fas fa-wave-square mr-1"></i>FFT</button>
-                <button onclick="setTab('data')" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest opacity-60 border-b-2 border-transparent hover:opacity-100 transition">DATA</button>
-                <button onclick="setTab('series')" id="tab-btn-series" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest opacity-60 border-b-2 border-transparent hidden hover:opacity-100 transition">SERIES</button>
-                <button onclick="setTab('compare')" id="tab-btn-compare" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest opacity-60 border-b-2 border-transparent hidden hover:opacity-100 transition">COMPARE</button>
-                <button onclick="setTab('info')" class="tab-btn shrink-0 px-4 py-3 text-[9px] font-bold tracking-widest text-yellow-400 border-b-2 border-transparent hover:opacity-70 transition"><i class="fas fa-book mr-1"></i>GUIDE</button>
+            <div class="border-b border-white/10 shrink-0">
+                <div class="tab-scroller px-2">
+                    <button onclick="App.setTab('controls')" class="tab-btn active" data-tab="controls">CONTROLS</button>
+                    <button onclick="App.setTab('numerics')" class="tab-btn" data-tab="numerics">NUMERICS</button>
+                    <button onclick="App.setTab('phase')" class="tab-btn" data-tab="phase">PHASE</button>
+                    <button onclick="App.setTab('poincare')" class="tab-btn" data-tab="poincare">MAP</button>
+                    <button onclick="App.setTab('graph')" class="tab-btn" data-tab="graph">GRAPH</button>
+                    <button onclick="App.setTab('bifur')" class="tab-btn" data-tab="bifur">BIFUR</button>
+                    <button onclick="App.setTab('fft')" class="tab-btn" data-tab="fft">SPECTRUM</button>
+                    <button onclick="App.setTab('data')" class="tab-btn" data-tab="data">DATA</button>
+                    <button onclick="App.setTab('info')" class="tab-btn" data-tab="info">INFO</button>
+                </div>
             </div>
 
-            <!-- TAB CONTENT -->
-            <div class="flex-1 overflow-y-auto p-5 relative safe-bottom">
+            <!-- CONTENT AREA -->
+            <div class="flex-1 overflow-y-auto p-5 pb-24 relative bg-black/10" id="drawer-content">
                 
                 <!-- 1. CONTROLS -->
-                <div id="tab-controls" class="space-y-5">
-                    <div class="glass-panel p-3 rounded-lg text-center min-h-[50px] flex items-center justify-center shadow-inner">
-                        <div id="katex-eq" class="text-sm"></div>
-                    </div>
-                    
-                    <!-- CUSTOM EQ INPUT -->
-                    <div id="custom-eq-panel" class="hidden space-y-2">
-                        <div class="text-[9px] font-bold opacity-70">CUSTOM MODEL DEFINITION</div>
-                        <div class="text-[8px] opacity-50">dx/dt = </div>
-                        <textarea id="inp-custom-dx" rows="1" class="code-input" spellcheck="false">return v;</textarea>
-                        <div class="text-[8px] opacity-50">dv/dt = </div>
-                        <textarea id="inp-custom-dv" rows="1" class="code-input" spellcheck="false">return -k*x - 0.1*v;</textarea>
-                        <div class="text-[8px] opacity-50 italic">Vars: x, v, t, k, tau, x_old, v_old.</div>
-                        <button onclick="applyCustomEq()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white text-[9px] py-1 rounded font-bold">COMPILE MODEL</button>
+                <div id="tab-controls" class="space-y-6">
+                    <div class="glass-panel p-4 flex items-center justify-center min-h-[64px] relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-purple-500/5 opacity-50"></div>
+                        <div id="katex-eq" class="text-sm relative z-10 text-cyan-100"></div>
                     </div>
 
-                    <div class="space-y-2">
-                        <div class="text-[9px] opacity-60 font-bold tracking-widest uppercase">Quick Presets</div>
-                        <div id="preset-container" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <div id="3d-controls" class="glass-panel p-3 rounded-lg flex flex-col gap-2 border-l-4 border-yellow-500/50">
-                        <div class="flex justify-between items-center">
-                             <span class="text-[10px] text-yellow-500 font-bold"><i class="fas fa-cube mr-1"></i> 3D VISUALIZATION</span>
-                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="inp-3d" class="sr-only peer">
-                                <div class="w-8 h-4 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-yellow-500"></div>
-                             </label>
+                    <div class="space-y-5">
+                        <div class="control-group">
+                            <div class="flex justify-between text-[10px] mb-2 opacity-80"><span class="font-bold uppercase tracking-wider text-cyan-400">Parameter K</span><span id="lbl-k" class="font-mono">0.50</span></div>
+                            <input type="range" id="inp-k" min="0" max="1" step="0.01" value="0.5">
                         </div>
-                        <div id="tilt-wrapper" class="hidden transition-all border-t border-white/5 mt-2 pt-2">
-                             <div class="flex justify-between text-[9px] opacity-70"><span>Tilt Angle</span><span id="lbl-tilt" class="text-yellow-500">45°</span></div>
-                             <input type="range" id="inp-tilt" min="0" max="90" value="45" class="w-full mt-1 accent-yellow-500">
-                        </div>
-                    </div>
-
-                    <div class="space-y-4" id="dynamic-controls">
-                        <div class="space-y-1 control-group" id="grp-tau">
-                            <div class="flex justify-between text-[10px]"><span class="opacity-70 font-bold">Delay (τ)</span><span id="lbl-tau" class="font-mono text-cyan-500 bg-cyan-500/10 px-1 rounded">20</span></div>
+                        <div class="control-group">
+                            <div class="flex justify-between text-[10px] mb-2 opacity-80"><span class="font-bold uppercase tracking-wider text-cyan-400">Delay / Freq</span><span id="lbl-tau" class="font-mono">20</span></div>
                             <input type="range" id="inp-tau" min="0" max="100" value="20">
                         </div>
-                        <div class="space-y-1 control-group" id="grp-k">
-                            <div class="flex justify-between text-[10px]"><span class="opacity-70 font-bold">Parameter (K/Beta)</span><span id="lbl-k" class="font-mono text-cyan-500 bg-cyan-500/10 px-1 rounded">0.1</span></div>
-                            <input type="range" id="inp-k" min="0.01" max="1.0" step="0.01" value="0.1">
+                        
+                        <div class="glass-panel p-4 space-y-4 border-l-2 border-yellow-500/50">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[10px] font-bold text-yellow-500 uppercase"><i class="fas fa-cube mr-1"></i> 3D Visualization</span>
+                                <input type="checkbox" id="inp-3d" class="accent-yellow-500 w-4 h-4 cursor-pointer">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><div class="text-[9px] opacity-60 mb-1">Tilt X</div><input type="range" id="inp-rotX" min="-90" max="90" value="0"></div>
+                                <div><div class="text-[9px] opacity-60 mb-1">Zoom</div><input type="range" id="inp-zoom" min="0.1" max="5" step="0.1" value="1"></div>
+                            </div>
                         </div>
-                        <div class="space-y-1 control-group">
-                            <div class="flex justify-between text-[10px]"><span class="opacity-70 font-bold">Zoom</span><span id="lbl-zoom" class="font-mono text-cyan-500 bg-cyan-500/10 px-1 rounded">1.0</span></div>
-                            <input type="range" id="inp-zoom" min="0.1" max="10.0" step="0.1" value="1.0">
+
+                        <div id="preset-container" class="flex flex-wrap gap-2 pt-2"></div>
+                        
+                        <div class="grid grid-cols-2 gap-3 text-[10px] font-bold">
+                            <button onclick="App.toggleAudio()" class="glass-panel p-3 text-left hover:bg-white/5 active:bg-white/10 flex items-center gap-2"><i class="fas fa-volume-up text-cyan-400"></i> Sonify Data</button>
+                            <button onclick="App.toggleRec()" class="glass-panel p-3 text-left hover:bg-white/5 active:bg-white/10 flex items-center gap-2"><i class="fas fa-video text-red-400"></i> Record MP4</button>
+                            <label class="glass-panel p-3 flex items-center gap-2 cursor-pointer"><input type="checkbox" id="inp-trail" checked class="accent-cyan-400"> Show Trails</label>
+                            <label class="glass-panel p-3 flex items-center gap-2 cursor-pointer"><input type="checkbox" id="inp-glow" class="accent-cyan-400"> Glow FX</label>
                         </div>
                     </div>
-
-                    <div class="glass-panel p-3 rounded-xl flex flex-col gap-2">
-                        <div class="grid grid-cols-2 gap-2">
-                            <label class="flex items-center gap-2 text-[10px] opacity-70 cursor-pointer"><input type="checkbox" id="inp-ghost" checked class="accent-cyan-400"> Show Ghost</label>
-                            <label class="flex items-center gap-2 text-[10px] opacity-70 cursor-pointer"><input type="checkbox" id="inp-trajectory" checked class="accent-cyan-400"> Trajectory</label>
-                            <label class="flex items-center gap-2 text-[10px] opacity-70 cursor-pointer"><input type="checkbox" id="inp-glow" checked class="accent-cyan-400"> Glow</label>
+                    
+                    <div id="custom-panel" class="hidden space-y-3 pt-4 border-t border-white/10">
+                        <div class="text-[9px] font-bold opacity-50 uppercase tracking-widest">Custom ODE Setup</div>
+                        
+                        <!-- System Type Selector for Locking -->
+                        <div class="flex gap-2 mb-2">
+                             <select id="sel-custom-type" class="w-full bg-black border border-white/20 rounded px-2 py-1 text-[10px] font-mono">
+                                <option value="DISSIPATIVE">Dissipative (Chaos)</option>
+                                <option value="HAMILTONIAN">Hamiltonian (Energy)</option>
+                                <option value="DELAY">Delay (DDE)</option>
+                            </select>
                         </div>
+
+                        <textarea id="inp-code-custom" class="w-full bg-black/40 border border-white/10 rounded p-3 text-[10px] font-mono text-green-400 focus:border-cyan-500 outline-none resize-none h-24">
+const x=s[0], y=s[1], z=s[2];
+return [
+  10*(y-x),
+  x*(28-z)-y,
+  x*y - (8/3)*z
+];</textarea>
+                        <button onclick="App.compileCustom()" class="w-full bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-600/40 py-2 rounded text-[9px] font-bold tracking-widest transition">COMPILE & RUN</button>
                     </div>
                 </div>
 
-                <!-- 2. PHASE -->
+                <!-- 2. NUMERICS -->
+                <div id="tab-numerics" class="hidden h-full space-y-6">
+                    <!-- Controls -->
+                    <div class="glass-panel p-4 space-y-4 relative">
+                        <!-- Solver Lock Overlay -->
+                        <div id="solver-lock-msg" class="hidden absolute top-0 right-0 bg-yellow-500/20 text-yellow-300 text-[8px] px-2 py-1 rounded-bl"></div>
+
+                        <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                            <h3 class="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">Integration Control</h3>
+                            <div class="flex gap-1 text-[9px] font-mono">
+                                <button onclick="App.setDirection(1)" id="btn-fwd" class="px-2 py-1 bg-cyan-600 rounded text-white">FWD</button>
+                                <button onclick="App.setDirection(-1)" id="btn-bwd" class="bg-white/10 px-2 py-1 rounded">REV</button>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-[9px] font-mono opacity-80"><span>Step Size (dt)</span><span id="lbl-dt">0.050</span></div>
+                            <input type="range" id="inp-dt" min="0.001" max="0.2" step="0.001" value="0.05">
+                        </div>
+                        <div class="space-y-2">
+                             <div class="flex justify-between text-[9px] font-mono opacity-80"><span>Solver Method</span></div>
+                             <select id="sel-solver" onchange="App.setSolver(this.value)" class="w-full bg-black border border-white/20 rounded px-2 py-1 text-[10px] font-mono">
+                                <option value="RK4">RK4 (Fixed Step)</option>
+                                <option value="RK45">RK45 (Adaptive Step)</option>
+                                <option value="SYMP">Symplectic Euler (Order 1)</option>
+                                <option value="VERLET">Velocity Verlet (Order 2)</option>
+                                <option value="YOSHIDA">Yoshida (Order 4 Symplectic)</option>
+                                <option value="CN">Crank-Nicolson (FD)</option>
+                                <option value="SPLIT">Split-Operator (Spectral FFT)</option>
+                                <option value="DDE">DDE (Hermite Cubic)</option>
+                             </select>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-[9px] font-mono opacity-80"><span>Boundary Condition (Quantum)</span></div>
+                             <select id="sel-bc" onchange="App.setBC(this.value)" class="w-full bg-black border border-white/20 rounded px-2 py-1 text-[10px]">
+                                <option value="absorbing">Absorbing (CAP/PML)</option>
+                                <option value="periodic">Periodic</option>
+                                <option value="reflecting">Reflecting</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 gap-2">
+                            <label class="flex items-center gap-2 text-[9px] cursor-pointer"><input type="checkbox" id="chk-ghosts" class="accent-red-500" onchange="App.toggleGhosts()"> Comp. Ghosts</label>
+                            <label class="flex items-center gap-2 text-[9px] cursor-pointer"><input type="checkbox" id="chk-flow" class="accent-blue-500" onchange="App.toggleFlow()"> Vector Field</label>
+                        </div>
+                         <button onclick="App.spawnEnsemble()" class="w-full bg-purple-600/20 text-purple-300 border border-purple-500/50 text-[9px] px-3 py-2 rounded hover:bg-purple-600/30 transition mt-2">SPAWN CHAOS ENSEMBLE (50)</button>
+                    </div>
+
+                    <!-- Diagnostics -->
+                    <div class="glass-panel p-4 space-y-2">
+                         <h3 class="text-[10px] font-bold text-red-400 uppercase tracking-widest border-b border-white/10 pb-2 mb-2">Error Diagnostics</h3>
+                         
+                         <div class="stat-row"><span class="stat-lbl">Active Solver</span><span id="diag-order" class="stat-val">RK4</span></div>
+                         <div class="stat-row"><span class="stat-lbl">Step Size (dt)</span><span id="diag-dt" class="stat-val">0.050</span></div>
+                         <div class="stat-row" id="row-div"><span class="stat-lbl">Jacobian Trace</span><span id="val-div" class="stat-val">...</span></div>
+                         <div class="stat-row" id="row-lyap"><span class="stat-lbl">FTLE (Lyapunov)</span><span id="val-lyap" class="stat-val">0.00</span></div>
+                         <div class="stat-row" id="row-norm"><span class="stat-lbl">Quantum Unitarity</span><span id="val-norm" class="stat-val">--</span></div>
+                         <div class="stat-row" id="row-drift"><span class="stat-lbl">Energy Drift</span><span id="diag-drift" class="stat-val text-yellow-400">--</span></div>
+                         <div class="stat-row"><span class="stat-lbl">Truncation Err</span><span id="diag-local" class="stat-val">Checking...</span></div>
+                    </div>
+
+                    <!-- Tools -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="App.runDtSweep()" class="glass-panel p-3 text-center hover:bg-white/5 active:bg-white/10">
+                            <div class="text-[9px] font-bold text-cyan-400 mb-1">RUN DT SWEEP</div>
+                            <div class="text-[8px] opacity-60">Check Convergence</div>
+                        </button>
+                        <button onclick="App.runReversibility()" class="glass-panel p-3 text-center hover:bg-white/5 active:bg-white/10">
+                            <div class="text-[9px] font-bold text-purple-400 mb-1">REVERSIBILITY</div>
+                            <div class="text-[8px] opacity-60">Fwd + Bwd Check</div>
+                        </button>
+                    </div>
+
+                    <div id="sweep-result" class="hidden text-[9px] font-mono p-2 bg-black/40 rounded border border-white/10 text-center">
+                        Wait for sweep...
+                    </div>
+                </div>
+
+                <!-- 3. PHASE -->
                 <div id="tab-phase" class="hidden h-full flex flex-col">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-[10px] font-bold text-purple-400 uppercase tracking-wider" id="phase-label">Phase Space</span>
-                        <button onclick="clearPhase()" class="text-[9px] bg-white/10 px-2 py-1 rounded hover:opacity-100 opacity-60"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                    <div class="flex-1 glass-panel rounded border border-purple-500/30 p-2 relative phase-grid overflow-hidden">
+                    <div class="flex-1 glass-panel relative overflow-hidden border border-purple-500/30 bg-black">
                         <canvas id="phaseCanvas"></canvas>
-                        <div class="absolute bottom-2 right-2 text-[9px] opacity-50 font-mono">x(t) →</div>
-                        <div class="absolute top-2 left-2 text-[9px] opacity-50 font-mono">v(t) / x2(t) ↑</div>
+                        <button onclick="App.clearCanvas('phaseCanvas')" class="absolute top-3 right-3 text-[9px] bg-black/50 px-2 py-1 rounded hover:bg-white/20 transition">CLR</button>
+                        <!-- Disabled Overlay for Driven/Delay Systems -->
+                        <div id="phase-disabled" class="disabled-overlay hidden">Disabled for Non-Autonomous System</div>
                     </div>
-                    <div class="mt-2 text-[9px] font-mono flex justify-between glass-panel p-2 rounded">
-                        <span>Lyapunov (Est): <span id="lyap-val" class="text-purple-400 font-bold">0.00</span></span>
-                        <span class="opacity-50">Pos = Chaos</span>
+                    <div class="mt-3 glass-panel p-3 flex justify-between items-center text-[10px] font-mono">
+                        <span>Projected: <span id="lbl-phase-proj" class="text-purple-400 font-bold">X vs Y</span></span>
                     </div>
                 </div>
 
-                <!-- 3. POINCARE MAP (NEW) -->
+                <!-- 4. POINCARE -->
                 <div id="tab-poincare" class="hidden h-full flex flex-col">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Poincaré Map</span>
-                        <button onclick="clearPoincare()" class="text-[9px] bg-white/10 px-2 py-1 rounded hover:opacity-100 opacity-60"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                    <div class="flex-1 glass-panel rounded border border-orange-500/30 p-2 relative phase-grid overflow-hidden">
+                    <div class="flex-1 glass-panel relative overflow-hidden border border-orange-500/30 bg-black">
                         <canvas id="poincareCanvas"></canvas>
-                        <div class="absolute inset-0 flex items-center justify-center text-[9px] opacity-30 pointer-events-none">Stroboscopic View (Interval T)</div>
-                    </div>
-                    <div class="mt-2 text-[8px] opacity-50 text-center">
-                        Samples the system state once every period (or fixed time step). Reveals fractal structure in attractors.
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-[10px] uppercase font-bold tracking-widest">Stroboscopic Section</div>
+                         <!-- Disabled Overlay -->
+                        <div id="poincare-disabled" class="disabled-overlay hidden">Only for Driven Systems</div>
                     </div>
                 </div>
 
-                <!-- 4. GRAPH -->
+                <!-- 5. GRAPH -->
                 <div id="tab-graph" class="hidden h-full flex flex-col">
-                    <div class="flex-1 glass-panel rounded p-2 relative min-h-[150px]">
+                    <div class="flex-1 glass-panel p-2 relative bg-black/20">
                         <canvas id="graphCanvas"></canvas>
                     </div>
-                    <div class="text-right mt-2"><button onclick="exportGraphPDF('graphCanvas')" class="text-[9px] bg-white/5 px-2 py-1 rounded"><i class="fas fa-camera"></i></button></div>
                 </div>
 
-                <!-- 5. BIFURCATION -->
-                <div id="tab-bifurcation" class="hidden h-full flex flex-col">
-                    <div class="flex justify-between items-center mb-2"><span class="text-[10px] font-bold text-green-400">Chaos Scanner</span><button onclick="runBifurcation()" class="bg-green-600 text-white text-[9px] px-2 py-1 rounded">START</button></div>
-                    <div class="flex-1 glass-panel rounded border border-green-500/30 relative"><canvas id="bifCanvas" class="absolute inset-0"></canvas><div id="bif-overlay" class="hidden text-green-300 text-xs p-2">Scanning... <span id="scan-progress">0%</span></div></div>
+                <!-- 6. BIFURCATION -->
+                <div id="tab-bifur" class="hidden h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-[10px] font-bold text-green-400 uppercase tracking-wider">K-Sweep (Computed)</span>
+                        <button onclick="App.runBifurcation()" class="bg-green-600 hover:bg-green-500 text-white text-[9px] px-4 py-1.5 rounded-full font-bold transition">COMPUTE SCAN</button>
+                    </div>
+                    <div class="flex-1 glass-panel relative border border-green-500/30 shadow-inner overflow-hidden bg-black">
+                        <canvas id="bifurCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                        <div id="bifur-overlay" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center hidden z-10">
+                            <div class="spinner mb-3"></div>
+                            <div class="text-[9px] font-mono text-green-400">Computing Phase Space... <span id="bifur-prog">0%</span></div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- 6. SPECTRUM -->
-                <div id="tab-spectrum" class="hidden h-full flex flex-col">
-                    <div class="flex-1 glass-panel rounded border border-pink-500/30 relative spec-grid"><canvas id="specCanvas"></canvas></div>
+                <!-- 7. FFT -->
+                <div id="tab-fft" class="hidden h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-[10px] font-bold text-pink-400">POWER SPECTRUM (DFT)</div>
+                        <div class="text-[9px] font-mono opacity-60">Nyquist: <span id="lbl-nyquist" class="text-white">--</span> Hz</div>
+                    </div>
+                    <div class="flex-1 glass-panel p-3 relative border border-pink-500/30 flex items-end bg-black/20" id="fft-bars">
+                         <!-- Bars injected here -->
+                    </div>
                 </div>
 
-                <!-- 7. DATA -->
+                <!-- 8. DATA -->
                 <div id="tab-data" class="hidden h-full flex flex-col">
-                    <div class="flex justify-between mb-2"><span class="text-[10px] font-bold opacity-70">DATA</span><div class="flex gap-2"><button onclick="exportCSV()" class="bg-blue-600 text-white px-2 py-1 rounded text-[9px]">CSV</button><button onclick="exportPDF()" class="bg-red-600 text-white px-2 py-1 rounded text-[9px]">PDF</button></div></div>
-                    <div class="flex-1 overflow-auto rounded glass-panel"><table class="w-full text-[9px] font-mono"><thead class="bg-slate-900 sticky top-0 text-cyan-400"><tr><th class="p-2">t</th><th>x</th><th>v</th></tr></thead><tbody id="data-body"></tbody></table></div>
-                </div>
-                
-                <!-- 8. SERIES -->
-                <div id="tab-series" class="hidden h-full flex flex-col gap-2">
-                     <div class="glass-panel p-2 rounded text-center"><div id="series-eq" class="text-xs"></div></div>
-                     <div class="flex justify-between items-center text-[10px]"><span class="opacity-60">Terms: <span id="lbl-terms" class="text-cyan-400">5</span></span><button class="bg-yellow-600/50 px-2 py-1 rounded text-yellow-200" onclick="toggleLimits()">Limits</button></div>
-                     <input type="range" id="inp-terms" min="1" max="50" value="5">
-                     <div class="flex-1 glass-panel rounded p-2 relative"><canvas id="seriesCanvas"></canvas></div>
-                </div>
-                
-                <!-- 9. COMPARE -->
-                <div id="tab-compare" class="hidden h-full flex flex-col gap-2">
-                     <div class="grid grid-cols-2 gap-2 text-center text-[9px] font-bold"><div class="bg-blue-900/30 py-1 rounded text-blue-400">NEWTON</div><div class="bg-pink-900/30 py-1 rounded text-pink-400">RAJU</div></div>
-                     <div class="flex-1 glass-panel rounded p-2 relative"><canvas id="compareCanvas"></canvas></div>
-                     <div class="glass-panel p-2 rounded text-[9px] font-mono"><div class="flex justify-between"><span>Err PDE:</span> <span id="drift-pde" class="text-blue-400">0%</span></div><div class="flex justify-between"><span>Err FDE:</span> <span id="drift-fde" class="text-pink-400">0%</span></div></div>
+                    <div class="flex justify-end gap-2 mb-3">
+                         <button onclick="App.exportCSV()" class="bg-blue-600/20 text-blue-300 border border-blue-500/50 text-[9px] px-3 py-1.5 rounded hover:bg-blue-600/30 transition">CSV</button>
+                         <button onclick="App.exportPDF()" class="bg-red-600/20 text-red-300 border border-red-500/50 text-[9px] px-3 py-1.5 rounded hover:bg-red-600/30 transition">FULL PDF REPORT</button>
+                    </div>
+                    <div class="flex-1 glass-panel overflow-auto rounded-lg border border-white/5">
+                        <table class="w-full text-[9px] font-mono text-left">
+                            <thead class="bg-white/5 sticky top-0 text-cyan-400 backdrop-blur"><tr><th class="p-3">TIME</th><th>X_VAL</th><th>Y_VAL</th><th>Z_VAL</th><th>ERR</th></tr></thead>
+                            <tbody id="data-body" class="divide-y divide-white/5 text-white/70"></tbody>
+                        </table>
+                    </div>
+                    <div class="text-[8px] text-white/30 text-center mt-1">Showing preview. PDF contains detailed log.</div>
                 </div>
 
-                <!-- 10. GUIDE -->
-                <div id="tab-info" class="hidden h-full glass-panel p-4 rounded-xl overflow-y-auto prose-sci">
-                    <h2 id="info-title" class="text-lg font-bold mb-2"></h2>
-                    <div id="info-content" class="text-xs opacity-80"></div>
+                <!-- 9. INFO (FIXED & EXTENDED) -->
+                <div id="tab-info" class="hidden h-full p-2">
+                    <h2 id="info-heading" class="text-xl font-bold text-cyan-400 mb-4 border-b border-white/10 pb-2"></h2>
+                    <div id="info-body" class="info-section">
+                        <!-- Populated by JS -->
+                    </div>
                 </div>
 
             </div>
@@ -314,485 +377,1111 @@
     </div>
 </div>
 
-<!-- SERVICE WORKER REGISTRATION (PWA) -->
 <script>
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').then(reg => console.log('SW Registered')).catch(err => console.log('SW Fail', err));
-}
-</script>
-
-<script>
-/**
- * RAJU'S FDE LAB: SCIENTIFIC UNIVERSE V11
- * Features: 3D Phase Space, PWA Fixes, Canvas Auto-Resize
- */
-
-const ALGO_DB = {
-    'SANDBOX': [
-        { id: 'custom_eq', title: 'Custom Playground (2D)', type: 'CUSTOM', eq: '\\dot{x}=f_1(...), \\dot{v}=f_2(...)', presets: [{name:'Oscillator', dx:'return v', dv:'return -k*x'}, {name:'Damped', dx:'return v', dv:'return -k*x - 0.1*v'}], usage: 'Define dx/dt and dv/dt. Vars: x, v, t, k, tau, x_old, v_old.', science: 'Full sandbox for coupled differential equations.' }
-    ],
-    'CHAOS (ADVANCED)': [
-        { id: 'double_pendulum', title: 'Double Pendulum', type: 'PENDULUM_2', eq: '\\ddot{\\theta}_1, \\ddot{\\theta}_2 = f(\\theta, \\dot{\\theta})', presets: [{name:'Chaotic', k:1, tau:0}], usage: 'Classic chaos. Low K = Low Energy.', science: 'Two coupled pendulums. Extremely sensitive to initial conditions.' },
-        { id: 'rossler_attractor', title: 'Rössler Attractor', type: 'ROSSLER', eq: '\\dot{x}=-y-z, \\dot{y}=x+ay, \\dot{z}=b+z(x-c)', presets: [{name:'Chaos', k:0.2}], usage: 'Simpler than Lorenz. Check Poincaré map.', science: 'Topology of chaos.' },
-        { id: 'lorenz_attractor', title: 'Lorenz Attractor', type: 'LORENZ', eq: '\\dot{x}=\\sigma(y-x)...', presets: [{name:'Butterfly', k:10}], usage: 'Rotate in 3D.', science: 'The classic strange attractor.' }
-    ],
-    'NEUROSCIENCE': [
-        { id: 'fitzhugh_nagumo', title: 'FitzHugh-Nagumo', type: 'NEURON', eq: '\\dot{v} = v - v^3/3 - w + I', presets: [{name:'Spiking', k:0.5}, {name:'Resting', k:0}], usage: 'K = Input Current. V=Voltage, W=Recovery.', science: 'Simplified model of neuronal spiking dynamics.' }
-    ],
-    'BIO-CHEMISTRY': [
-        { id: 'gray_scott', title: 'Gray-Scott Patterns', type: 'REACTION_DIFFUSION', eq: '\\partial u/\\partial t = D_u \\nabla^2 u - uv^2...', presets: [{name:'Mitosis', k:0.062, tau:0.037}], usage: 'Wait for patterns. Touch to seed.', science: 'Turing patterns simulating skin spots.' },
-        { id: 'lotka_volterra', title: 'Predator-Prey', type: 'COUPLED_LV', eq: '\\dot{x}=x(\\alpha-\\beta y), \\dot{y}=y(\\delta x-\\gamma)', presets: [{name:'Cycle', k:0.5}], usage: 'X=Prey, Y=Predator.', science: 'Population dynamics.' },
-        { id: 'sir_model', title: 'SIR Epidemic', type: 'SIR', eq: '\\dot{S}=-\\beta SI', presets: [{name:'Outbreak', k:0.5}], usage: 'S=Blue, I=Red.', science: 'Infectious disease modeling.' }
-    ],
-    'CLASSICAL MECHANICS': [
-        { id: 'osc_compare', title: 'Newton vs FDE', type: 'COMPARE', eq: 'm\\ddot{x} = -kx(t-\\tau)', presets: [{name:'Stable', k:0.1, tau:5}], usage: 'Compare Energy drift.', science: 'Delay causes non-conservation.' },
-        { id: 'ret_grav', title: 'Retarded Gravity', type: 'FDE', eq: 'a \\propto 1/r(t-\\tau)^2', presets: [{name:'Precession', k:0.1, tau:15}], usage: 'Watch orbital shifts.', science: 'Finite speed of gravity torque.' },
-        { id: 'pendulum_damped', title: 'Damped Pendulum', type: 'FDE', eq: '\\ddot{\\theta} + \\gamma\\dot{\\theta} + g/L\\sin(\\theta) = 0', presets: [{name:'Simple', k:0.1}], usage: 'Nonlinear oscillator.', science: 'Small angle approx breakdown.' }
-    ],
-    'CIRCUITS': [
-        { id: 'rlc_circuit', title: 'RLC Circuit', type: 'FDE', eq: 'L\\ddot{q} + R\\dot{q} + q/C = V(t)', presets: [{name:'Ring', k:0.1}], usage: 'Oscillating charge.', science: 'Electrical resonance.' },
-        { id: 'van_der_pol', title: 'Van der Pol', type: 'FDE', eq: '\\ddot{x} - \\mu(1-x^2)\\dot{x} + x = 0', presets: [{name:'Relaxation', k:1.0}], usage: 'Limit cycles.', science: 'Vacuum tubes model.' }
-    ],
-    'FOUNDATIONS': [
-        { id: 'series_sin', title: 'Infinite Series', type: 'SERIES', eq: '\\sin(x) \\approx \\sum ...', presets: [{name:'Low N', terms:2}], usage: 'Slide Terms.', science: 'Madhava series.' },
-        { id: 'timeline', title: 'History of Time', type: 'TIMELINE', eq: '\\Delta t \\to dt', presets: [], usage: 'Drag slider.', science: 'Calculus evolution.' }
-    ],
-    'FIELDS': [
-        { id: 'em_ret', title: 'Retarded Potentials', type: 'EM_PARTICLE', eq: 'E \\propto q(t-\\tau)/R^2', presets: [{name:'Field', tau:20}], usage: 'Moving charge.', science: 'Liénard–Wiechert potentials.' },
-        { id: 'thermo_hyp', title: 'Hyperbolic Heat', type: 'THERMO_1D', eq: '\\tau T_{tt} + T_t = \\alpha T_{xx}', presets: [{name:'Wave', tau:80}], usage: 'Touch to heat.', science: 'Second Sound.' }
-    ]
-};
-
-const State = {
-    activeAlgo: null, running: false, t: 0,
-    history: { x: [], v: [], x2: [], v2: [], z: [], x_pde: [], v_pde: [] },
-    field: [], grid: [], gridV: [], particles: [],
-    gs: { u: [], v: [], w: 100, h: 100 },
-    params: { k: 0.1, gamma: 0.05, tau: 20, zoom: 1.0, terms: 5, showLimits: false, color: '#06b6d4', glow: true, showTrajectory: true, showGhost: true, is3D: false, tilt: 45 },
-    audio: { ctx: null, analyser: null, source: null, gain: null, enabled: false },
-    rec: { recorder: null, stream: null, chunks: [], recording: false },
-    customFn: { dx: null, dv: null },
-    lyapunov: 0, theme: 'dark', cinema: false
-};
-
-const cvs=document.getElementById('simCanvas'), ctx=cvs.getContext('2d');
-const phaseCvs=document.getElementById('phaseCanvas'), phaseCtx=phaseCvs.getContext('2d');
-const poinCvs=document.getElementById('poincareCanvas'), poinCtx=poinCvs.getContext('2d');
-const bifCvs=document.getElementById('bifCanvas'), specCvs=document.getElementById('specCanvas');
-let chartObj=null, seriesChart=null, compareChart=null;
-
-function init() {
-    resize(); populateHome(); window.addEventListener('resize', resize);
-    ['tau','k','zoom','terms','tilt'].forEach(p => bindInput(`inp-${p}`, p));
-    document.getElementById('inp-ghost').addEventListener('change', e=>State.params.showGhost=e.target.checked);
-    document.getElementById('inp-3d').addEventListener('change', e=>{ State.params.is3D=e.target.checked; document.getElementById('tilt-wrapper').classList.toggle('hidden',!e.target.checked); });
-    document.getElementById('timeline-slider').addEventListener('input', updateTimeline);
-    setupInteractions(); requestAnimationFrame(loop);
-}
-
-function launchSim(algo) {
-    State.activeAlgo = algo; State.t = 0; State.running = true; State.lyapunov = 0;
-    State.history = { x: [1], v: [0], x2: [0.5], v2: [0], z: [1], x_pde: [1], v_pde: [0] };
-    if(algo.type.includes('PENDULUM_2')) { State.history.x=[Math.PI/2]; State.history.x2=[Math.PI/2]; State.history.v=[0]; State.history.v2=[0]; }
-    if(algo.type==='FDE_1ST'||algo.type==='LORENZ'||algo.type==='ROSSLER') State.history.x=[0.1];
-    if(algo.type==='LORENZ'||algo.type==='ROSSLER') { State.history.x2=[0]; State.history.z=[0]; }
-    if(algo.type==='NEURON') { State.history.x=[-1]; State.history.v=[0]; }
-    
-    clearPhase(); clearPoincare();
-    if(chartObj)chartObj.destroy(); if(seriesChart)seriesChart.destroy(); if(compareChart)compareChart.destroy(); chartObj=null; seriesChart=null; compareChart=null;
-    document.getElementById('sim-title').innerText = algo.title.toUpperCase();
-    document.getElementById('sim-status').innerText = 'RUNNING';
-    document.getElementById('info-title').innerText = algo.title;
-    document.getElementById('info-content').innerHTML = `<div class="mb-4 glass-panel p-3 rounded shadow-inner"><div class="text-[9px] opacity-60 font-bold mb-1">Model</div><div id="info-eq-render" class="text-cyan-500 text-sm overflow-x-auto"></div></div>${algo.usage}<hr class="border-white/10 my-4">${algo.science}`;
-    setTimeout(() => { try{katex.render(algo.eq, document.getElementById('info-eq-render'), {throwOnError:false})}catch(e){} }, 100);
-
-    const isCustom = algo.type === 'CUSTOM';
-    document.getElementById('custom-eq-panel').classList.toggle('hidden', !isCustom);
-    if(isCustom) applyCustomEq();
-
-    const pc = document.getElementById('preset-container'); pc.innerHTML='';
-    (algo.presets||[]).forEach(p=>{
-        const b=document.createElement('button'); b.className='text-[9px] bg-white/10 hover:bg-cyan-500/20 hover:text-cyan-500 border border-white/10 px-2 py-1 rounded transition';
-        b.innerText=p.name; b.onclick=()=>applyPreset(p); pc.appendChild(b);
-    });
-
-    if(algo.type.includes('FIELD')||algo.type.includes('THERMO')||algo.type.includes('WAVE')) initGrid();
-    if(algo.type==='REACTION_DIFFUSION') initGrayScott();
-    if(algo.type==='EM_PARTICLE') initParticles();
-
-    ['tab-btn-series','tab-btn-compare'].forEach(id=>document.getElementById(id).classList.add('hidden'));
-    document.getElementById('timeline-ui').classList.add('hidden');
-    let def='controls';
-    if(algo.type==='SERIES') { document.getElementById('tab-btn-series').classList.remove('hidden'); def='series'; initSeriesChart(); updateCharts(); }
-    else if(algo.type==='TIMELINE') document.getElementById('timeline-ui').classList.remove('hidden');
-    else if(algo.type.includes('COMPARE')||algo.type.includes('FIELD_COMPARE')) { document.getElementById('tab-btn-compare').classList.remove('hidden'); def='compare'; initCompareChart(); }
-    else initChart();
-    
-    setTab(def); renderMath();
-    document.getElementById('view-home').style.transform = 'translateX(-100%)';
-    document.getElementById('view-sim').style.transform = 'translateX(0)';
-}
-
-function goBack() { State.running=false; document.getElementById('view-home').style.transform='translateX(0)'; document.getElementById('view-sim').style.transform='translateX(100%)'; }
-
-function loop() {
-    if(!State.running || !State.activeAlgo) { requestAnimationFrame(loop); return; }
-    const dt = 0.1; const type = State.activeAlgo.type;
-
-    try {
-        if(type==='FDE'||type==='COMPARE') physicsFDE(dt);
-        else if(type==='CUSTOM') physicsCustom(dt);
-        else if(type==='PENDULUM_2') physicsDoublePendulum(dt);
-        else if(type==='ROSSLER') physicsRossler(dt);
-        else if(type==='NEURON') physicsFitzHugh(dt);
-        else if(type==='FDE_1ST') physicsMackey(dt);
-        else if(type==='COUPLED'||type.includes('COUPLED_')) physicsCoupled(dt);
-        else if(type==='LORENZ') physicsLorenz(dt);
-        else if(type==='SIR') physicsSIR(dt);
-        else if(type==='REACTION_DIFFUSION') physicsGrayScott();
-        else if(type.includes('FIELD')||type.includes('WAVE')||type.includes('THERMO')) gridStep(dt);
-        else if(type==='EM_PARTICLE') emStep(dt);
-    } catch(e) { console.error(e); }
-    
-    State.t++;
-    if(State.t%10===0 && State.history.x.length>20) {
-        let d = Math.abs(State.history.x[0]-State.history.x[20]);
-        if(d>0) State.lyapunov = Math.log(d/0.001)/20;
-        document.getElementById('lyap-val').innerText = State.lyapunov.toFixed(3);
-    }
-
-    if(type!=='TIMELINE') { 
-        if(type==='REACTION_DIFFUSION') drawGrayScott();
-        else { drawWorld(); drawPhaseSpace(); drawPoincare(); }
-        if(!document.getElementById('tab-spectrum').classList.contains('hidden')) drawSpectrum();
-    }
-    
-    let audioVal = State.history.x[0] || (State.grid.length>50?State.grid[50]:0);
-    updateAudio(audioVal);
-    if(State.t%3===0) { updateTable(); updateCharts(); }
-    requestAnimationFrame(loop);
-}
-
-function getDelayed(arr, tau) { let i=Math.floor(tau); if(i>=arr.length)i=arr.length-1; return arr[i<0?0:i]; }
-
-function physicsFDE(dt) {
-    let k=State.params.k, x=State.history.x[0], v=State.history.v[0], x_old=getDelayed(State.history.x, State.params.tau);
-    let a = -k*x_old - 0.05*v;
-    if(State.activeAlgo.id==='ret_grav') a = -10*k/Math.pow(Math.max(0.5,Math.abs(x_old)),2) + v*v/Math.max(0.5,Math.abs(x));
-    else if(State.activeAlgo.id==='proj_drag') a = -k*x - 0.05*v - 0.1*getDelayed(State.history.v, State.params.tau);
-    else if(State.activeAlgo.id==='rlc_circuit') a = -k*v - x + Math.sin(State.t*0.1); 
-    else if(State.activeAlgo.id==='van_der_pol') a = k*(1-x*x)*v - x; 
-    else if(State.activeAlgo.id==='pendulum_damped') a = -0.05*v - k*Math.sin(x_old);
-    
-    v+=a*dt; x+=v*dt;
-    State.history.x.unshift(x); State.history.v.unshift(v);
-    if(State.activeAlgo.type==='COMPARE') {
-        let xp=State.history.x_pde[0], vp=State.history.v_pde[0];
-        vp += (-k*xp - 0.05*vp)*dt; xp += vp*dt;
-        State.history.x_pde.unshift(xp); State.history.v_pde.unshift(vp);
-    }
-    trimHist();
-}
-
-function physicsCustom(dt) {
-    if(!State.customFn.dx) return;
-    let x=State.history.x[0], v=State.history.v[0], x_old=getDelayed(State.history.x, State.params.tau), v_old=getDelayed(State.history.v, State.params.tau);
-    let dx=0, dv=0;
-    try { 
-        dx = State.customFn.dx(x, v, State.t, State.params.k, State.params.tau, x_old, v_old);
-        dv = State.customFn.dv(x, v, State.t, State.params.k, State.params.tau, x_old, v_old);
-    } catch(e) { dx=0; dv=0; }
-    x+=dx*dt; v+=dv*dt;
-    State.history.x.unshift(x); State.history.v.unshift(v); trimHist();
-}
-
-function physicsDoublePendulum(dt) {
-    let t1=State.history.x[0], w1=State.history.v[0], t2=State.history.x2[0], w2=State.history.v2[0];
-    let g=1, m1=1, m2=1, L1=1, L2=1;
-    let num1 = -g*(2*m1+m2)*Math.sin(t1) - m2*g*Math.sin(t1-2*t2) - 2*Math.sin(t1-t2)*m2*(w2*w2*L2 + w1*w1*L1*Math.cos(t1-t2));
-    let den1 = L1*(2*m1+m2-m2*Math.cos(2*t1-2*t2));
-    let num2 = 2*Math.sin(t1-t2)*(w1*w1*L1*(m1+m2) + g*(m1+m2)*Math.cos(t1) + w2*w2*L2*m2*Math.cos(t1-t2));
-    let den2 = L2*(2*m1+m2-m2*Math.cos(2*t1-2*t2));
-    let a1 = num1/den1; let a2 = num2/den2;
-    w1+=a1*dt; t1+=w1*dt; w2+=a2*dt; t2+=w2*dt;
-    State.history.x.unshift(t1); State.history.v.unshift(w1);
-    State.history.x2.unshift(t2); State.history.v2.unshift(w2); trimHist();
-}
-
-function physicsFitzHugh(dt) {
-    let v=State.history.x[0], w=State.history.v[0], I=State.params.k; 
-    let dv = v - (v*v*v)/3 - w + I;
-    let dw = 0.08 * (v + 0.7 - 0.8*w);
-    State.history.x.unshift(v+dv*dt); State.history.v.unshift(w+dw*dt); trimHist();
-}
-
-function physicsRossler(dt) {
-    let x=State.history.x[0], y=State.history.x2[0], z=State.history.z[0], a=0.2, b=0.2, c=5.7;
-    let dx = (-y-z)*dt*0.5, dy = (x+a*y)*dt*0.5, dz = (b + z*(x-c))*dt*0.5;
-    State.history.x.unshift(x+dx); State.history.x2.unshift(y+dy); State.history.z.unshift(z+dz); State.history.v.unshift(dx); trimHist();
-}
-
-function physicsMackey(dt){let x=State.history.x[0],xt=getDelayed(State.history.x,State.params.tau);let dx=(State.params.k*2*xt)/(1+Math.pow(xt,10))-0.1*x;State.history.x.unshift(x+dx*dt);State.history.v.unshift(dx);trimHist()}
-function physicsCoupled(dt){if(State.activeAlgo.type==='COUPLED_LV'){physicsLotka(dt);return;}if(State.activeAlgo.type==='COUPLED_BRUSS'){physicsBruss(dt);return;}let k=State.params.k,t=State.params.tau,x1=State.history.x[0],v1=State.history.v[0],x2=State.history.x2[0],v2=State.history.v2[0];let x1t=getDelayed(State.history.x,t),x2t=getDelayed(State.history.x2,t);v1+=(-x1+k*(x2t-x1)-0.05*v1)*dt;x1+=v1*dt;v2+=(-x2+k*(x1t-x2)-0.05*v2)*dt;x2+=v2*dt;State.history.x.unshift(x1);State.history.v.unshift(v1);State.history.x2.unshift(x2);State.history.v2.unshift(v2);trimHist()}
-function physicsLotka(dt){let x=State.history.x[0],y=State.history.x2[0];let dx=(0.1*x-State.params.k*x*y)*dt,dy=(State.params.k*x*y-0.2*y)*dt;State.history.x.unshift(x+dx);State.history.x2.unshift(y+dy);State.history.v.unshift(dx);trimHist()}
-function physicsBruss(dt){let x=State.history.x[0],y=State.history.x2[0],A=1,B=State.params.k*10;let dx=(A+x*x*y-B*x-x)*dt,dy=(B*x-x*x*y)*dt;State.history.x.unshift(x+dx);State.history.x2.unshift(y+dy);State.history.v.unshift(dx);trimHist()}
-function physicsLorenz(dt){let x=State.history.x[0],y=State.history.x2[0],z=State.history.z[0],s=10,r=State.params.k*50,b=8/3;let dx=s*(y-x)*dt*0.1,dy=(x*(r-z)-y)*dt*0.1,dz=(x*y-b*z)*dt*0.1;State.history.x.unshift(x+dx);State.history.x2.unshift(y+dy);State.history.z.unshift(z+dz);State.history.v.unshift(dx);trimHist()}
-function physicsSIR(dt){let s=State.history.x[0],i=State.history.x2[0],r=State.history.z[0]||0,b=State.params.k,g=0.1;let ds=-b*s*i*dt,di=(b*s*i-g*i)*dt,dr=g*i*dt;State.history.x.unshift(s+ds);State.history.x2.unshift(i+di);State.history.z.unshift(r+dr);State.history.v.unshift(ds);trimHist()}
-function trimHist(){if(State.history.x.length>2000)Object.values(State.history).forEach(a=>a.length>2000&&a.pop())}
-
-function initGrayScott() {
-    let sz = 64; State.gs = { u: new Float32Array(sz*sz).fill(1), v: new Float32Array(sz*sz).fill(0), size: sz };
-    for(let y=28;y<36;y++)for(let x=28;x<36;x++) State.gs.v[y*sz+x] = 1;
-}
-function physicsGrayScott() {
-    let { u, v, size } = State.gs;
-    let nextU = new Float32Array(u), nextV = new Float32Array(v);
-    let Du=0.2, Dv=0.1, f=0.01+State.params.k*0.08, k=0.03+State.params.tau*0.001; 
-    for(let y=1; y<size-1; y++){
-        for(let x=1; x<size-1; x++){
-            let i = y*size + x;
-            let lapU = (u[i-1]+u[i+1]+u[i-size]+u[i+size] - 4*u[i]);
-            let lapV = (v[i-1]+v[i+1]+v[i-size]+v[i+size] - 4*v[i]);
-            let uvv = u[i]*v[i]*v[i];
-            nextU[i] = u[i] + (Du*lapU - uvv + f*(1-u[i]));
-            nextV[i] = v[i] + (Dv*lapV + uvv - (f+k)*v[i]);
+/* --- NUMERICS KERNEL --- */
+const Physics = {
+    // Basic FFT (Cooley-Tukey Radix-2)
+    fft: (re, im, inv) => {
+        const n = re.length;
+        // Bit Reversal
+        let j = 0;
+        for (let i = 0; i < n - 1; i++) {
+            if (i < j) {
+                [re[i], re[j]] = [re[j], re[i]];
+                [im[i], im[j]] = [im[j], im[i]];
+            }
+            let k = n >> 1;
+            while (k <= j) { j -= k; k >>= 1; }
+            j += k;
         }
-    }
-    State.gs.u = nextU; State.gs.v = nextV;
-}
-function drawGrayScott() {
-    let { u, v, size } = State.gs;
-    let id = ctx.createImageData(size, size);
-    for(let i=0; i<u.length; i++){
-        let val = Math.floor((u[i]-v[i])*255); val = Math.max(0, Math.min(255, val));
-        let idx = i*4; id.data[idx] = val; id.data[idx+1] = val>100?255:0; id.data[idx+2] = 255-val; id.data[idx+3] = 255;
-    }
-    ctx.fillStyle=getComputedStyle(document.body).getPropertyValue('--bg-color'); ctx.fillRect(0,0,cvs.width,cvs.height);
-    let tempCvs = document.createElement('canvas'); tempCvs.width=size; tempCvs.height=size;
-    tempCvs.getContext('2d').putImageData(id,0,0);
-    ctx.imageSmoothingEnabled = false; ctx.drawImage(tempCvs, 0, 0, cvs.width, cvs.height);
-}
-
-function initGrid(){State.grid=new Array(100).fill(0);State.gridV=new Array(100).fill(0);State.field=new Array(100).fill(0).map((_,i)=>({r:Math.exp(-Math.pow((i-50)/5,2)),i:0}));for(let i=45;i<55;i++)State.grid[i]=Math.sin((i-45)/10*Math.PI)}
-function gridStep(dt){let g=State.grid,gv=State.gridV,ng=[...g],ngv=[...gv];let isThermo=State.activeAlgo.type.includes('THERMO');let inertia=isThermo?State.params.tau*0.02:1.0;for(let i=1;i<99;i++){let acc=(0.5*(g[i-1]+g[i+1]-2*g[i])-(isThermo?0:0.01)*gv[i])/(inertia+0.1);ngv[i]+=acc*dt;ng[i]+=ngv[i]*dt}State.grid=ng;State.gridV=ngv}
-function fieldStep(dt){let f=State.field,nf=new Array(f.length);nf[0]=nf[f.length-1]={r:0,i:0};for(let i=1;i<f.length-1;i++){let lr=f[i-1].r+f[i+1].r-2*f[i].r,li=f[i-1].i+f[i+1].i-2*f[i].i;let V=0.01*Math.pow(i-50,2)+State.params.k*(Math.pow(f[i].r,2)+Math.pow(f[i].i,2));nf[i]={r:f[i].r+(-0.5*li+V*f[i].i)*dt,i:f[i].i-(-0.5*lr+V*f[i].r)*dt}}State.field=nf}
-function initParticles(){State.particles=[{x:0,y:0,vx:0,vy:0,fixed:true},{x:100,y:50,vx:0,vy:2,fixed:false}]}
-function emStep(dt){let p=State.particles,tau=State.params.tau;p[0].y=50*Math.sin(State.t*0.05);let retY=50*Math.sin((State.t-tau)*0.05);let dx=p[1].x-p[0].x,dy=p[1].y-retY,dist=Math.sqrt(dx*dx+dy*dy+10);let F=1000/(dist*dist);if(!p[1].fixed){p[1].vx-=F*(dx/dist)*dt;p[1].vy-=F*(dy/dist)*dt;p[1].x+=p[1].vx*dt;p[1].y+=p[1].vy*dt}}
-
-function drawWorld() {
-    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-color'); ctx.fillRect(0,0,cvs.width,cvs.height);
-    const cx=cvs.width/2, cy=cvs.height/2, zoom=State.params.zoom;
-    ctx.save(); ctx.translate(cx, cy); ctx.scale(zoom, zoom);
-    
-    function project(x,y,z) {
-        if(!State.params.is3D) return {x,y};
-        const rad = State.params.tilt*Math.PI/180;
-        let yr = y*Math.cos(rad) - z*Math.sin(rad);
-        let zr = y*Math.sin(rad) + z*Math.cos(rad);
-        let s = 500/(500+zr); return {x:x*s, y:yr*s};
-    }
-
-    if(State.params.is3D || State.activeAlgo.type==='LORENZ'||State.activeAlgo.type==='ROSSLER') {
-        ctx.strokeStyle = State.theme==='light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)'; 
-        ctx.lineWidth=1/zoom; ctx.beginPath();
-        for(let i=-200;i<=200;i+=50) {
-            let p1=project(i,0,-200), p2=project(i,0,200), p3=project(-200,0,i), p4=project(200,0,i);
-            ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.moveTo(p3.x,p3.y); ctx.lineTo(p4.x,p4.y);
+        // Butterfly
+        let step = 1;
+        while (step < n) {
+            const jump = step << 1;
+            const deltaTheta = (inv ? -1 : 1) * Math.PI / step;
+            const wReal = Math.cos(deltaTheta);
+            const wImag = Math.sin(deltaTheta);
+            for (let i = 0; i < n; i += jump) {
+                let uReal = 1, uImag = 0;
+                for (let k = 0; k < step; k++) {
+                    const id = i + k + step;
+                    const tReal = uReal * re[id] - uImag * im[id];
+                    const tImag = uReal * im[id] + uImag * re[id];
+                    re[id] = re[i + k] - tReal;
+                    im[id] = im[i + k] - tImag;
+                    re[i + k] += tReal;
+                    im[i + k] += tImag;
+                    // Rotation
+                    const temp = uReal * wReal - uImag * wImag;
+                    uImag = uReal * wImag + uImag * wReal;
+                    uReal = temp;
+                }
+            }
+            step = jump;
         }
-        ctx.stroke();
-    }
+        // Scaling for inverse
+        if (inv) for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+    },
 
-    ctx.strokeStyle = State.params.color; ctx.lineWidth = 2/zoom;
+    // Structure-Preserving Integrators
+    project: (y, p) => {
+        // Placeholder for SHAKE/RATTLE constraint projection
+        // If system had explicit constraint g(q)=0, we would Lagrange multiplier correction here.
+        if(p.constraints) { /* Apply geometric constraints */ }
+        return y;
+    },
 
-    if(State.activeAlgo.type==='PENDULUM_2') {
-        let t1=State.history.x[0], t2=State.history.x2[0];
-        let x1=100*Math.sin(t1), y1=100*Math.cos(t1);
-        let x2=x1+100*Math.sin(t2), y2=y1+100*Math.cos(t2);
-        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-        ctx.fillStyle=State.params.color; ctx.beginPath(); ctx.arc(x1,y1,5,0,6.28); ctx.fill(); ctx.beginPath(); ctx.arc(x2,y2,5,0,6.28); ctx.fill();
-        ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.beginPath();
-        State.history.x2.slice(0,500).forEach((val, i)=>{
-            let tx1=100*Math.sin(State.history.x[i]), ty1=100*Math.cos(State.history.x[i]);
-            let tx2=tx1+100*Math.sin(val), ty2=ty1+100*Math.cos(val);
-            i===0?ctx.moveTo(tx2,ty2):ctx.lineTo(tx2,ty2);
-        });
-        ctx.stroke();
-    }
-    else if(State.activeAlgo.type==='LORENZ'||State.activeAlgo.type==='ROSSLER') {
-        ctx.beginPath();
-        State.history.x.slice(0,1000).forEach((x,i)=>{
-            let y=State.history.x2[i], z=State.history.z[i];
-            let p = project(x*5, y*5, z*5 - 100);
-            i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);
-        });
-        ctx.stroke();
-    }
-    else if(State.activeAlgo.type.includes('COUPLED') || State.activeAlgo.type==='SIR') {
-        [State.history.x, State.history.x2, State.history.z].forEach((hist, idx) => {
-            if(!hist || hist.length===0) return;
-            ctx.strokeStyle = idx===0 ? '#06b6d4' : (idx===1 ? '#e879f9' : '#4ade80');
-            ctx.beginPath();
-            hist.slice(0,500).forEach((v,i) => {
-                let p = project(i*-2, v*50 + (idx-1)*50, 0); 
-                i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y);
-            });
-            ctx.stroke();
-        });
-    }
-    else if(State.history.x.length > 0) {
-        ctx.beginPath();
-        State.history.x.slice(0, 1000).forEach((v,i) => {
-            let p = State.activeAlgo.id==='ret_grav' 
-                ? project(v*Math.cos((State.t-i)*.05)*20, v*Math.sin((State.t-i)*.05)*20, i)
-                : project(State.params.is3D?0:i*-2, v*50, State.params.is3D?i*2:0);
-            i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);
-        });
-        ctx.stroke();
-        if(State.params.showGhost && State.params.tau > 0) {
-            let idx = Math.floor(State.params.tau); let gv = State.history.x[idx]||0;
-            let gp = project(State.params.is3D?0:-idx*2, gv*50, State.params.is3D?idx*2:0);
-            if(State.activeAlgo.id==='ret_grav') gp = project(gv*Math.cos((State.t-State.params.tau)*.05)*20, gv*Math.sin((State.t-State.params.tau)*.05)*20, 0);
-            ctx.fillStyle=State.theme==='light'?'rgba(0,0,0,0.3)':'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(gp.x,gp.y,4/zoom,0,6.28); ctx.fill();
+    velocityVerlet: (t, y, dt, fn, p) => {
+        const h = y.length/2;
+        const q = y.slice(0, h);
+        const v = y.slice(h);
+        
+        // 1. Get acceleration a(t)
+        const s_t = [...q, ...v];
+        const derivs = fn(t, s_t, p);
+        const a_t = derivs.slice(h);
+
+        // 2. q(t+dt) = q(t) + v(t)dt + 0.5*a(t)dt^2
+        const q_next = q.map((val, i) => val + v[i]*dt + 0.5*a_t[i]*dt*dt);
+
+        // 3. a(t+dt) using q_next. (Force depends on q mostly)
+        // We use v as placeholder since conservative force usually F(q)
+        const s_next_guess = [...q_next, ...v]; 
+        const derivs_next = fn(t+dt, s_next_guess, p);
+        const a_next = derivs_next.slice(h);
+
+        // 4. v(t+dt) = v(t) + 0.5*(a(t) + a(t+dt))dt
+        const v_next = v.map((val, i) => val + 0.5*(a_t[i] + a_next[i])*dt);
+        
+        const res = [...q_next, ...v_next];
+        return Physics.project(res, p);
+    },
+
+    yoshida: (t, y, dt, fn, p) => {
+        // 4th Order Symplectic Composition
+        // w1 = 1 / (2 - 2^(1/3))
+        const w1 = 1.3512071919596578;
+        const w0 = -1.7024143839193153; // 1 - 2*w1
+        
+        const steps = [w1*dt, w0*dt, w1*dt];
+        let curr = [...y];
+
+        // Helper: Velocity Verlet Step (2nd Order Symplectic)
+        const verletStep = (state, _dt) => Physics.velocityVerlet(t, state, _dt, fn, p);
+
+        // Composition: S4 = S2(w1) o S2(w0) o S2(w1)
+        for(let s of steps) {
+            curr = verletStep(curr, s);
         }
-    }
-    
-    if(State.activeAlgo.type.includes('FIELD') || State.activeAlgo.type.includes('WAVE')) {
-        let arr = State.activeAlgo.type.includes('FIELD') ? State.field.map(f=>Math.sqrt(Math.pow(f.r,2)+Math.pow(f.i,2))) : State.grid;
-        ctx.beginPath(); arr.forEach((v,i) => { let p = project((i-50)*5, v*50, 0); i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y); }); ctx.stroke();
-    }
-    ctx.restore();
-}
+        return curr;
+    },
 
-function drawPhaseSpace() {
-    if(document.getElementById('tab-phase').classList.contains('hidden')) return;
-    phaseCtx.fillStyle = State.theme==='light'?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.05)'; phaseCtx.fillRect(0,0,phaseCvs.width, phaseCvs.height);
-    const cx=phaseCvs.width/2, cy=phaseCvs.height/2, scale=40;
-    
-    // 3D Rotation for Phase Space too!
-    const rad = State.params.is3D ? State.params.tilt*Math.PI/180 : 0;
-    function proj(x, y, z=0) {
-        if(!State.params.is3D) return {x,y};
-        let yr = y*Math.cos(rad) - z*Math.sin(rad);
-        let zr = y*Math.sin(rad) + z*Math.cos(rad);
-        let s = 500/(500+zr); return {x:x*s, y:yr*s};
-    }
+    // Tridiagonal Matrix Algorithm (TDMA) for Crank-Nicolson
+    tdma: (a, b, c, d) => {
+        const n = d.length;
+        const c_prime = new Float32Array(n - 1);
+        const d_prime = new Float32Array(n);
+        
+        c_prime[0] = c[0] / b[0];
+        d_prime[0] = d[0] / b[0];
+        
+        for (let i = 1; i < n; i++) {
+            let temp = 1.0 / (b[i] - a[i - 1] * c_prime[i - 1]);
+            if (i < n - 1) c_prime[i] = c[i] * temp;
+            d_prime[i] = (d[i] - a[i - 1] * d_prime[i - 1]) * temp;
+        }
+        
+        const x = new Float32Array(n);
+        x[n - 1] = d_prime[n - 1];
+        for (let i = n - 2; i >= 0; i--) {
+            x[i] = d_prime[i] - c_prime[i] * x[i + 1];
+        }
+        return x;
+    },
 
-    let x=State.history.x[0], y=State.history.v[0], z=0, xp=State.history.x[1], yp=State.history.v[1], zp=0;
-    if(State.activeAlgo.type.includes('COUPLED')||State.activeAlgo.type==='LORENZ'||State.activeAlgo.type==='SIR') { y = State.history.x2[0]; yp = State.history.x2[1]; }
-    if(State.activeAlgo.type==='LORENZ') { z = State.history.z[0]; zp = State.history.z[1]; }
+    // Standard FD Crank-Nicolson
+    crankNicolson: (t, psi, dt, p) => {
+        const N = psi.length / 2;
+        const Re = psi.slice(0, N);
+        const Im = psi.slice(N, 2 * N);
+        const dx = 1.0; 
+        const C = 1.0 / (2 * dx * dx); 
+        const alpha = dt / 2.0;
 
-    let p1 = proj(x*scale, y*scale, z*scale);
-    let p2 = proj(xp*scale, yp*scale, zp*scale);
-    
-    phaseCtx.save(); phaseCtx.translate(cx, cy);
-    phaseCtx.strokeStyle = '#a855f7'; phaseCtx.lineWidth=2;
-    phaseCtx.beginPath(); phaseCtx.moveTo(p2.x, -p2.y); phaseCtx.lineTo(p1.x, -p1.y); phaseCtx.stroke();
-    phaseCtx.restore();
-}
+        const V = new Float32Array(N);
+        const W = new Float32Array(N); 
+        
+        for(let i=0; i<N; i++) {
+            V[i] = p.V; 
+            if (p.bc === 'absorbing') {
+                const width = 20;
+                if (i < width) W[i] = 2.0 * Math.pow((width - i) / width, 2);
+                else if (i > N - width) W[i] = 2.0 * Math.pow((i - (N - width)) / width, 2);
+            }
+        }
 
-function drawPoincare() {
-    if(document.getElementById('tab-poincare').classList.contains('hidden')) return;
-    if(State.t % 20 === 0) { 
-        poinCtx.fillStyle = '#f97316';
-        let x = State.history.x[0], y = State.history.v[0];
-        if(State.activeAlgo.type==='LORENZ') { y = State.history.z[0]; }
-        let cx = poinCvs.width/2 + x*30;
-        let cy = poinCvs.height/2 - y*30;
-        poinCtx.fillRect(cx, cy, 2, 2);
-    }
-}
+        const rhsRe = new Float32Array(N);
+        const rhsIm = new Float32Array(N);
 
-function applyCustomEq() {
-    const dxCode = document.getElementById('inp-custom-dx').value;
-    const dvCode = document.getElementById('inp-custom-dv').value;
-    try {
-        State.customFn = {
-            dx: new Function('x', 'v', 't', 'k', 'tau', 'x_old', 'v_old', dxCode),
-            dv: new Function('x', 'v', 't', 'k', 'tau', 'x_old', 'v_old', dvCode)
+        for(let i=0; i<N; i++) {
+            const imL = (i===0) ? (p.bc==='periodic'?Im[N-1]:0) : Im[i-1];
+            const imR = (i===N-1) ? (p.bc==='periodic'?Im[0]:0) : Im[i+1];
+            const reL = (i===0) ? (p.bc==='periodic'?Re[N-1]:0) : Re[i-1];
+            const reR = (i===N-1) ? (p.bc==='periodic'?Re[0]:0) : Re[i+1];
+
+            const termV_Re = (2*C + V[i])*Re[i] - C*(reL + reR);
+            const termV_Im = (2*C + V[i])*Im[i] - C*(imL + imR);
+            const termW_Re = W[i]*Re[i];
+            const termW_Im = W[i]*Im[i];
+
+            rhsRe[i] = Re[i] + alpha*(termV_Im - termW_Re);
+            rhsIm[i] = Im[i] - alpha*(termV_Re + termW_Im);
+        }
+        
+        const diagRe = new Float32Array(N);
+        const diagIm = new Float32Array(N);
+        const offRe = 0, offIm = -alpha * C;
+
+        for(let i=0; i<N; i++) {
+            diagRe[i] = 1 + alpha * W[i];
+            diagIm[i] = alpha * (2*C + V[i]);
+        }
+
+        const c_prime_re = new Float32Array(N);
+        const c_prime_im = new Float32Array(N);
+        const d_prime_re = new Float32Array(N);
+        const d_prime_im = new Float32Array(N);
+
+        let denom = diagRe[0]**2 + diagIm[0]**2;
+        c_prime_re[0] = (offRe*diagRe[0] + offIm*diagIm[0])/denom;
+        c_prime_im[0] = (offIm*diagRe[0] - offRe*diagIm[0])/denom;
+        d_prime_re[0] = (rhsRe[0]*diagRe[0] + rhsIm[0]*diagIm[0])/denom;
+        d_prime_im[0] = (rhsIm[0]*diagRe[0] - rhsRe[0]*diagIm[0])/denom;
+
+        for(let i=1; i<N; i++) {
+            const ocp_re = offRe*c_prime_re[i-1] - offIm*c_prime_im[i-1];
+            const ocp_im = offRe*c_prime_im[i-1] + offIm*c_prime_re[i-1];
+            const piv_re = diagRe[i] - ocp_re;
+            const piv_im = diagIm[i] - ocp_im;
+            const piv_mag = piv_re**2 + piv_im**2;
+
+            if(i < N-1) {
+                c_prime_re[i] = (offRe*piv_re + offIm*piv_im)/piv_mag;
+                c_prime_im[i] = (offIm*piv_re - offRe*piv_im)/piv_mag;
+            }
+
+            const odp_re = offRe*d_prime_re[i-1] - offIm*d_prime_im[i-1];
+            const odp_im = offRe*d_prime_im[i-1] + offIm*d_prime_re[i-1];
+            const num_re = rhsRe[i] - odp_re;
+            const num_im = rhsIm[i] - odp_im;
+            
+            d_prime_re[i] = (num_re*piv_re + num_im*piv_im)/piv_mag;
+            d_prime_im[i] = (num_im*piv_re - num_re*piv_im)/piv_mag;
+        }
+
+        const newRe = new Float32Array(N);
+        const newIm = new Float32Array(N);
+        newRe[N-1] = d_prime_re[N-1];
+        newIm[N-1] = d_prime_im[N-1];
+
+        for(let i=N-2; i>=0; i--) {
+            const cx_re = c_prime_re[i]*newRe[i+1] - c_prime_im[i]*newIm[i+1];
+            const cx_im = c_prime_re[i]*newIm[i+1] + c_prime_im[i]*newRe[i+1];
+            newRe[i] = d_prime_re[i] - cx_re;
+            newIm[i] = d_prime_im[i] - cx_im;
+        }
+
+        return [...newRe, ...newIm];
+    },
+
+    // Split-Operator Method (Spectral)
+    splitOp: (t, psi, dt, p) => {
+        const N = psi.length / 2;
+        const re = psi.slice(0, N);
+        const im = psi.slice(N, 2 * N);
+        
+        // Potential Step (V is Real Space)
+        // psi = exp(-i V dt / 2) * psi
+        const applyPot = (steps) => {
+            for(let i=0; i<N; i++) {
+                let V = p.V;
+                // Absorbing Boundary (Imaginary Potential) handled in real space decay
+                let decay = 1.0;
+                if(p.bc === 'absorbing') {
+                    const w = 20;
+                    if(i < w) decay = Math.pow(i/w, 0.2);
+                    else if(i > N-w) decay = Math.pow((N-i)/w, 0.2);
+                }
+
+                // Phase rotation due to V
+                const theta = -V * dt * steps; 
+                const c = Math.cos(theta), s = Math.sin(theta);
+                const r = re[i], m = im[i];
+                re[i] = (r*c - m*s) * decay;
+                im[i] = (r*s + m*c) * decay;
+            }
         };
-        showToast("Custom Model Compiled");
-    } catch(e) { showToast("Syntax Error in Equation"); }
-}
 
-function toggleTheme() { State.theme = State.theme==='dark' ? 'light' : 'dark'; document.body.className = State.theme==='light' ? 'theme-light' : ''; }
-function toggleCinema() { State.cinema = !State.cinema; document.getElementById('ui-layer').classList.toggle('cinema-hidden', State.cinema); showToast(State.cinema ? "Cinema Mode ON (Click to Exit)" : "Cinema Mode OFF"); if(State.cinema) cvs.addEventListener('click', toggleCinema, {once:true}); }
-function toggleRecording() {
-    if(!State.rec.recording) {
-        try {
-            State.rec.stream = cvs.captureStream(30);
-            State.rec.recorder = new MediaRecorder(State.rec.stream, { mimeType: 'video/webm' });
-            State.rec.recorder.ondataavailable = e => State.rec.chunks.push(e.data);
-            State.rec.recorder.onstop = e => {
-                const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(State.rec.chunks, { type: 'video/webm' })); a.download = 'sim.webm'; a.click(); State.rec.chunks = [];
-            };
-            State.rec.recorder.start(); State.rec.recording = true;
-            document.getElementById('rec-status').classList.remove('hidden'); document.getElementById('btn-rec').classList.add('animate-pulse'); showToast("Recording...");
-        } catch(e) { showToast("Recording Not Supported"); }
-    } else {
-        State.rec.recorder.stop(); State.rec.recording = false;
-        document.getElementById('rec-status').classList.add('hidden'); document.getElementById('btn-rec').classList.remove('animate-pulse'); showToast("Video Saved");
+        // 1. Half Kick
+        applyPot(0.5);
+
+        // 2. FFT to k-space
+        Physics.fft(re, im, false);
+
+        // 3. Kinetic Drift (k-space)
+        // psi = exp(-i k^2/2 dt) * psi
+        const dk = 2 * Math.PI / N;
+        for(let i=0; i<N; i++) {
+            let k = i;
+            if (k > N/2) k -= N; // Aliasing
+            k *= dk;
+            const theta = -0.5 * k * k * dt;
+            const c = Math.cos(theta), s = Math.sin(theta);
+            const r = re[i], m = im[i];
+            re[i] = r*c - m*s;
+            im[i] = r*s + m*c;
+        }
+
+        // 4. IFFT to real space
+        Physics.fft(re, im, true);
+
+        // 5. Half Kick
+        applyPot(0.5);
+
+        return [...re, ...im];
+    },
+
+    euler: (t, y, dt, fn, p) => {
+        const k1 = fn(t, y, p);
+        return y.map((v, i) => v + k1[i] * dt);
+    },
+    rk4: (t, y, dt, fn, p) => {
+        const k1 = fn(t, y, p);
+        const y2 = y.map((v,i) => v + k1[i]*dt*0.5);
+        const k2 = fn(t + dt*0.5, y2, p);
+        const y3 = y.map((v,i) => v + k2[i]*dt*0.5);
+        const k3 = fn(t + dt*0.5, y3, p);
+        const y4 = y.map((v,i) => v + k3[i]*dt);
+        const k4 = fn(t + dt, y4, p);
+        return y.map((v,i) => v + (dt/6)*(k1[i] + 2*k2[i] + 2*k3[i] + k4[i]));
+    },
+    // Runge-Kutta-Fehlberg 4(5) - Adaptive
+    rk45: (t, y, dt, fn, p, tol=1e-5) => {
+        const k1 = fn(t, y, p);
+        const y2 = y.map((v,i) => v + dt*(1/4)*k1[i]);
+        const k2 = fn(t+dt/4, y2, p);
+        const y3 = y.map((v,i) => v + dt*((3/32)*k1[i] + (9/32)*k2[i]));
+        const k3 = fn(t+3*dt/8, y3, p);
+        const y4 = y.map((v,i) => v + dt*((1932/2197)*k1[i] - (7200/2197)*k2[i] + (7296/2197)*k3[i]));
+        const k4 = fn(t+12*dt/13, y4, p);
+        const y5 = y.map((v,i) => v + dt*((439/216)*k1[i] - 8*k2[i] + (3680/513)*k3[i] - (845/4104)*k4[i]));
+        const k5 = fn(t+dt, y5, p);
+        const y6 = y.map((v,i) => v + dt*((-8/27)*k1[i] + 2*k2[i] - (3544/2565)*k3[i] + (1859/4104)*k4[i] - (11/40)*k5[i]));
+        const k6 = fn(t+dt/2, y6, p);
+
+        const out5 = y.map((v,i) => v + dt*((16/135)*k1[i] + (6656/12825)*k3[i] + (28561/56430)*k4[i] - (9/50)*k5[i] + (2/55)*k6[i]));
+        const out4 = y.map((v,i) => v + dt*((25/216)*k1[i] + (1408/2565)*k3[i] + (2197/4104)*k4[i] - (1/5)*k5[i]));
+
+        let maxErr = 0;
+        for(let i=0; i<y.length; i++) maxErr = Math.max(maxErr, Math.abs(out5[i]-out4[i]));
+        
+        let newDt = dt;
+        if(maxErr > 0) newDt = 0.9 * dt * Math.pow(tol / maxErr, 0.2);
+        newDt = Math.max(0.1*dt, Math.min(5.0*dt, newDt));
+        
+        return { y: out5, dt: newDt, err: maxErr };
+    },
+    symplectic: (t, y, dt, fn, p) => {
+        const half = Math.floor(y.length / 2);
+        const acc = fn(t, y, p);
+        const next = [...y];
+        // Symplectic Euler: v_{n+1} = v_n + a(x_n) * dt
+        for(let i=0; i<half; i++) next[half+i] += acc[half+i] * dt;
+        // x_{n+1} = x_n + v_{n+1} * dt
+        for(let i=0; i<half; i++) next[i] += next[half+i] * dt;
+        return next;
+    },
+    // Cubic Hermite Interpolated DDE Solver
+    dde: (t, y, dt, hist, tau, fn, p) => {
+        const target = t - tau;
+        let y_lag = y;
+        
+        if(hist.length > 1 && tau > 0) {
+            // Find segment
+            let i = hist.length - 1;
+            while (i > 0 && hist[i].t > target) i--;
+            
+            if (i >= 0 && i < hist.length - 1) {
+                const h0 = hist[i], h1 = hist[i+1];
+                // Normalized time in segment
+                const theta = (target - h0.t) / (h1.t - h0.t);
+                const dt_seg = h1.t - h0.t;
+                
+                // Hermite Basis
+                const H00 = 2*theta**3 - 3*theta**2 + 1;
+                const H10 = theta**3 - 2*theta**2 + theta;
+                const H01 = -2*theta**3 + 3*theta**2;
+                const H11 = theta**3 - theta**2;
+                
+                y_lag = h0.y.map((v, k) => {
+                    // Derivatives scaled by dt
+                    const m0 = h0.dy ? h0.dy[k] * dt_seg : 0; // fallback if dy missing
+                    const m1 = h1.dy ? h1.dy[k] * dt_seg : 0;
+                    return H00*v + H10*m0 + H01*h1.y[k] + H11*m1;
+                });
+            } else {
+                // Out of history bounds, use linear extrapolation or clamp
+                y_lag = hist[0].y; 
+            }
+        }
+        
+        const k1 = fn(t, y, y_lag, p);
+        return { y: y.map((v,i) => v + k1[i]*dt), dy: k1 };
+    },
+    jacobianTrace: (y, fn, t, p) => {
+        const eps = 1e-5; let trace = 0; const f0 = fn(t, y, p);
+        for(let i=0; i<y.length; i++) {
+            const y_p = [...y]; y_p[i] += eps;
+            const f_p = fn(t, y_p, p);
+            trace += (f_p[i] - f0[i]) / eps;
+        }
+        return trace;
+    },
+    eq: {
+        lorenz: (t,s,p) => [p.s*(s[1]-s[0]), s[0]*(p.r-s[2])-s[1], s[0]*s[1]-p.b*s[2]],
+        rossler: (t,s,p) => [-s[1]-s[2], s[0]+p.a*s[1], p.b+s[2]*(s[0]-p.c)],
+        halvorsen: (t,s,p) => [ -p.a*s[0] - 4*s[1] - 4*s[2] - s[1]**2, -p.a*s[1] - 4*s[2] - 4*s[0] - s[2]**2, -p.a*s[2] - 4*s[0] - 4*s[1] - s[0]**2 ],
+        thomas: (t,s,p) => [ Math.sin(s[1]) - p.b*s[0], Math.sin(s[2]) - p.b*s[1], Math.sin(s[0]) - p.b*s[2] ],
+        chua: (t,s,p) => { 
+            const h = p.m1*s[0] + 0.5*(p.m0-p.m1)*(Math.abs(s[0]+1)-Math.abs(s[0]-1));
+            return [p.alpha*(s[1]-s[0]-h), s[0]-s[1]+s[2], -p.beta*s[1]];
+        },
+        rlc: (t,s,p) => [s[1], (p.V0*Math.sin(p.w*t) - p.R*s[1] - s[0]/p.C)/p.L], 
+        duffing: (t,s,p) => [s[1], p.gam*Math.cos(p.w*t) - p.del*s[1] - p.alpha*s[0] - p.beta*Math.pow(s[0],3)],
+        pendulum: (t,s,p) => {
+            const [t1,w1,t2,w2]=s, d=2*p.m1+p.m2-p.m2*Math.cos(2*t1-2*t2);
+            return [w1, (-p.g*(2*p.m1+p.m2)*Math.sin(t1)-p.m2*p.g*Math.sin(t1-2*t2)-2*Math.sin(t1-t2)*p.m2*(w2**2*p.l2+w1**2*p.l1*Math.cos(t1-t2)))/(p.l1*d), w2, (2*Math.sin(t1-t2)*(w1**2*p.l1*(p.m1+p.m2)+p.g*(p.m1+p.m2)*Math.cos(t1)+w2**2*p.l2*p.m2*Math.cos(t1-t2)))/(p.l2*d)];
+        },
+        nbody: (t,s,p) => {
+            const acc=new Array(12).fill(0), G=1, m=[p.m,p.m,p.m];
+            for(let i=0;i<3;i++){
+                let ax=0,ay=0;
+                for(let j=0;j<3;j++){
+                    if(i===j)continue;
+                    const dx=s[j*2]-s[i*2], dy=s[j*2+1]-s[i*2+1], r=Math.hypot(dx,dy)+0.05;
+                    const f=G*m[j]/(r*r*r); ax+=f*dx; ay+=f*dy;
+                }
+                acc[6+i*2]=ax; acc[6+i*2+1]=ay;
+            }
+            return acc;
+        },
+        mackey: (t,s,l,p) => [p.beta * l[0] / (1 + Math.pow(l[0], p.n)) - p.gam * s[0]],
+        // Quantum is now handled by crankNicolson/Split, this placeholder is unused
+        quantum_dummy: (t, s, p) => [0],
+        custom: (t,s,p) => [0,0,0]
     }
-}
+};
 
-function resize(){
-    cvs.width=window.innerWidth; cvs.height=window.innerHeight; 
-    // CRITICAL FIX: Only resize if element is visible to prevent 0x0 errors
-    [phaseCvs, bifCvs, specCvs, poinCvs].forEach(c => { 
-        if(c && c.offsetParent !== null) { 
-            c.width = c.clientWidth; c.height = c.clientHeight; 
+/* --- MODELS DATABASE --- */
+const Models = [
+    { cat: 'CHAOS', id: 'lorenz', sys: 'DISSIPATIVE', title: 'Lorenz Attractor', type: 'RK4', init: [0.1,0,0], fn: 'lorenz', p: k=>({s:10, b:8/3, r:k*100}), phases: [0,2], presets: [{n:'Chaos',k:0.28},{n:'Stable',k:0.1}], eq: '\\dot{x}=\\sigma(y-x)', desc: 'Simplified atmospheric convection model.', assump: ['Homogeneous fluid', 'Linear temperature profile'], valid: 'Rayleigh number near critical point.' },
+    { cat: 'CHAOS', id: 'rossler', sys: 'DISSIPATIVE', title: 'Rössler Attractor', type: 'RK4', init: [0.1,0.1,0.1], fn: 'rossler', p: k=>({a:0.2, b:0.2, c:k*50}), phases: [0,1], eq: '\\dot{x}=-y-z', desc: 'Minimal chaotic system with one manifold.', assump: ['Theoretical construct'], valid: 'Topological chaos study.' },
+    { cat: 'CHAOS', id: 'halvorsen', sys: 'DISSIPATIVE', title: 'Halvorsen Attractor', type: 'RK4', init: [1,0,0], fn: 'halvorsen', p: k=>({a:1.2+k*0.5}), phases: [0,1], eq: '\\dot{x} = -ax - 4y - 4z - y^2', desc: 'Cyclically symmetric attractor.', assump: ['Theoretical'], valid: 'Math curiosity.' },
+    { cat: 'CHAOS', id: 'thomas', sys: 'DISSIPATIVE', title: 'Thomas Attractor', type: 'RK4', init: [0.1,0,0], fn: 'thomas', p: k=>({b:0.18 + k*0.05}), phases: [0,1], eq: '\\dot{x} = \\sin(y) - bx', desc: 'Cyclically symmetric chaotic attractor.', assump: ['Theoretical'], valid: 'Low dissipation chaos.' },
+    
+    { cat: 'CIRCUITS', id: 'rlc', sys: 'DRIVEN', title: 'RLC Series Circuit', type: 'RK4', energy: (s,p)=>0.5*s[0]*s[0]/p.C + 0.5*p.L*s[1]*s[1], init: [0.5, 0], fn: 'rlc', p: k=>({R:0.5, L:1, C:1, V0:1, w:1+k*2}), phases: [0,1], eq: 'L\\ddot{q} + R\\dot{q} + q/C = V(t)', desc: 'Damped driven harmonic oscillator in electronics.', assump: ['Ideal components', 'No radiation loss', 'Lumped parameters'], valid: 'Low frequency AC, non-microwave.' },
+    { cat: 'CIRCUITS', id: 'chua', sys: 'DISSIPATIVE', title: 'Chua\'s Circuit', type: 'RK4', init: [0.1,0,0], fn: 'chua', p: k=>({alpha:15.6, beta:28+k, m0:-1.143, m1:-0.714}), phases: [0,1], eq: '\\dot{x}=\\alpha(y-x-f(x))', desc: 'Simplest electronic circuit exhibiting chaos.', assump: ['Piecewise-linear resistor', 'Ideal Inductor'], valid: 'Non-linear operational amplifier regime.' },
+
+    { cat: 'OSCILLATOR', id: 'duffing', sys: 'DRIVEN', title: 'Duffing Oscillator', type: 'RK4', init: [0.1,0], fn: 'duffing', p: k=>({del:0.3, alpha:-1, beta:1, gam:0.5, w:1+k}), phases: [0,1], eq: '\\ddot{x} + \\delta\\dot{x} + \\alpha x + \\beta x^3 = \\gamma \\cos(\\omega t)', desc: 'Spring with non-linear restoring force.', assump: ['Point mass', 'Cubic stiffness'], valid: 'Large amplitude mechanical vibrations.' },
+    { cat: 'MECH', id: 'pendulum', sys: 'HAMILTONIAN', title: 'Double Pendulum', type: 'SYMP', energy: (s,p)=>0, init: [2,0,2,0], fn: 'pendulum', p: k=>({m1:1, m2:1, l1:1, l2:1, g:9.8}), phases: [0,1], eq: '\\mathcal{L} = T - V', desc: 'Coupled pendulum showing Hamiltonian chaos.', assump: ['Massless rods', 'Frictionless pivots', 'Point masses'], valid: 'Classical mechanics domain.' },
+    
+    { cat: 'SPACE', id: 'nbody', sys: 'HAMILTONIAN', title: '3-Body Orbit', type: 'SYMP', energy: (s,p)=> {
+         let T=0, V=0;
+         const G=1, m=[p.m,p.m,p.m];
+         for(let i=0;i<3;i++) T += 0.5*m[i]*(s[6+i*2]**2 + s[6+i*2+1]**2);
+         for(let i=0;i<3;i++) for(let j=i+1;j<3;j++) V -= G*m[i]*m[j] / Math.hypot(s[j*2]-s[i*2], s[j*2+1]-s[i*2+1]);
+         return T+V;
+    }, init: [-1,0, 1,0, 0,1.7, 0.5,-0.5, 0.5,0.5, -1,0], fn: 'nbody', p: k=>({m:10}), phases: [0,1], eq: 'F = G m_1 m_2 / r^2', desc: 'Gravitational interaction of three bodies.', assump: ['Point masses', 'Newtonian gravity (No GR)'], valid: 'Non-relativistic speeds, weak fields.' },
+    
+    { cat: 'QM', id: 'quantum', sys: 'QUANTUM', title: 'Quantum Tunneling', type: 'SPLIT', init: [], fn: 'quantum_dummy', p: k=>({V:k*2, bc: App.state.numerics.bc}), phases: [0,1], eq: 'i\\hbar \\dot{\\psi} = \\hat{H} \\psi', desc: 'Wavefunction hitting a potential barrier.', assump: ['1D space', 'Non-relativistic', 'Time-independent potential'], valid: 'Schrödinger regime.' },
+    { cat: 'DELAY', id: 'mackey', sys: 'DELAY', title: 'Mackey-Glass', type: 'DDE', init: [0.5], fn: 'mackey', p: k=>({beta:0.2, gam:0.1, n:10, tau:20}), phases: [0,0], eq: '\\dot{x} = \\beta x_{\\tau} / (1+x_{\\tau}^n) - \\gamma x', desc: 'Physiological feedback loop.', assump: ['Constant delay', 'Single variable feedback'], valid: 'biological control systems.' },
+    { cat: 'CUSTOM', id: 'custom', sys: 'CUSTOM', title: 'Custom Equation', type: 'RK4', init: [1,1,1], fn: 'custom', p:k=>({}), phases: [0,1], eq: 'User Defined', desc: 'Live compilation of user equations.', assump: ['N/A'], valid: 'N/A' }
+];
+
+/* --- APP CONTROLLER --- */
+const App = {
+    state: { active: null, running: false, t: 0, y: [], aux: [], hist: [], traj: [], ensemble: [], dataLog: [], view: { zoom: 1, cx: 0, cy: 0, rotX: 0, rotY: 0 }, params: { k: 0.5, tau: 20, is3D: false, trails: true, glow: false }, numerics: { dt: 0.05, dir: 1, solver: 'RK4', ghosts: false, flow: false, bc: 'absorbing' }, ghostState: { euler: [], symp: [] }, input: { ptrs: new Map(), prevDist: 0 }, lyap: { sum: 0, n: 0 }, rec: { on: false }, audio: { on: false, ctx: null } },
+
+    init() {
+        this.populateMenu();
+        this.setupInputs();
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.loadModel(Models[0]);
+        this.initChart();
+        requestAnimationFrame(() => this.loop());
+    },
+
+    populateMenu() {
+        const l = document.getElementById('algo-list');
+        const cats = {};
+        Models.forEach(m => {
+            if(!cats[m.cat]) {
+                const h = document.createElement('h3');
+                h.className = "text-[9px] font-bold opacity-40 mb-2 border-l-2 border-cyan-500 pl-2 tracking-widest mt-6 first:mt-0 uppercase";
+                h.innerText = m.cat; l.appendChild(h); cats[m.cat] = true;
+            }
+            const b = document.createElement('button');
+            b.className = "w-full text-left bg-white/5 border border-white/5 p-4 rounded mb-2 hover:border-cyan-500/30 transition flex justify-between items-center group active:bg-white/10";
+            b.innerHTML = `<div><div class="font-bold text-xs group-hover:text-cyan-400 transition">${m.title}</div><div class="text-[9px] opacity-60 font-mono mt-0.5">${m.sys}</div></div><i class="fas fa-play text-[10px] opacity-20 group-hover:opacity-100 transition"></i>`;
+            b.onclick = () => this.loadModel(m);
+            l.appendChild(b);
+        });
+    },
+
+    loadModel(m) {
+        this.state.active = m;
+        this.state.t = 0; this.state.running = true; 
+        this.state.traj = []; this.state.hist = []; this.state.dataLog = [];
+        this.state.ensemble = [];
+        this.state.view = { zoom: 1, cx: 0, cy: 0, rotX: 0, rotY: 0 };
+        this.state.lyap = { sum:0, n:0 };
+        this.state.E0 = null; 
+        
+        // --- SMART SOLVER LOCKING ---
+        const sel = document.getElementById('sel-solver');
+        const lockMsg = document.getElementById('solver-lock-msg');
+        Array.from(sel.options).forEach(o => o.disabled = false); // Reset
+        lockMsg.classList.add('hidden');
+
+        if(m.sys === 'HAMILTONIAN') {
+            this.state.numerics.solver = 'VERLET'; // Default to Verlet
+            sel.value = 'VERLET';
+            Array.from(sel.options).forEach(o => { if(!['SYMP', 'VERLET', 'YOSHIDA'].includes(o.value)) o.disabled = true; });
+            lockMsg.innerText = "LOCKED: SYMPLECTIC"; lockMsg.classList.remove('hidden');
+        } else if(m.sys === 'DISSIPATIVE') {
+            this.state.numerics.solver = 'RK4';
+            sel.value = 'RK4';
+            Array.from(sel.options).forEach(o => { if(!['RK4','RK45'].includes(o.value)) o.disabled = true; });
+        } else if(m.sys === 'DELAY') {
+            this.state.numerics.solver = 'DDE';
+            sel.value = 'DDE';
+            Array.from(sel.options).forEach(o => { if(o.value !== 'DDE') o.disabled = true; });
+            lockMsg.innerText = "LOCKED: HERMITE DDE"; lockMsg.classList.remove('hidden');
+        } else if(m.sys === 'QUANTUM') {
+            this.state.numerics.solver = 'SPLIT';
+            sel.value = 'SPLIT';
+            Array.from(sel.options).forEach(o => { if(!['CN', 'SPLIT'].includes(o.value)) o.disabled = true; });
+            lockMsg.innerText = "LOCKED: UNITARY/SPECTRAL"; lockMsg.classList.remove('hidden');
+        }
+
+        // Init State
+        if(m.id === 'quantum') {
+            const N = 256; // Power of 2 for FFT
+            this.state.y = new Float32Array(N*2);
+            // Gaussian Packet
+            for(let i=0; i<N; i++) { 
+                const x=(i-64)/10; 
+                this.state.y[i] = Math.exp(-x*x)*Math.cos(5*x); 
+                this.state.y[N+i] = Math.exp(-x*x)*Math.sin(5*x); 
+            }
+            // Normalize
+            let norm = 0;
+            for(let i=0; i<N; i++) norm += this.state.y[i]**2 + this.state.y[N+i]**2;
+            norm = Math.sqrt(norm);
+            for(let i=0; i<this.state.y.length; i++) this.state.y[i] /= norm;
+
+        } else {
+            this.state.y = [...m.init];
+            this.state.ghostState.euler = [...m.init];
+            this.state.ghostState.symp = [...m.init];
+            if(['DISSIPATIVE', 'DRIVEN'].includes(m.sys)) {
+                 this.state.shadow = this.state.y.map((v,i)=>i===0?v+1e-7:v);
+            }
+        }
+        
+        if(m.energy) this.state.E0 = m.energy(this.state.y, m.p(this.state.params.k));
+
+        // Diagnostics UI Update
+        document.getElementById('row-drift').classList.toggle('hidden', m.sys !== 'HAMILTONIAN');
+        document.getElementById('row-div').classList.toggle('hidden', m.sys === 'QUANTUM');
+        document.getElementById('row-lyap').classList.toggle('hidden', m.sys === 'QUANTUM' || m.sys === 'HAMILTONIAN');
+        document.getElementById('row-norm').classList.toggle('hidden', m.sys !== 'QUANTUM');
+        
+        // Phase/Poincare Overlay
+        const isAutonomous = ['CHAOS', 'MECH', 'SPACE'].includes(m.cat);
+        const isDriven = m.sys === 'DRIVEN';
+        
+        document.getElementById('phase-disabled').classList.toggle('hidden', isAutonomous);
+        document.getElementById('poincare-disabled').classList.toggle('hidden', isDriven);
+
+        document.getElementById('sim-title').innerText = m.title;
+        document.getElementById('info-heading').innerText = m.title;
+        if(m.id !== 'custom') katex.render(m.eq, document.getElementById('katex-eq'), {throwOnError:false});
+        else document.getElementById('katex-eq').innerText = "Defined by User Code";
+        
+        const ib = document.getElementById('info-body');
+        ib.innerHTML = `
+            <h3>Equation</h3><div class="font-mono text-cyan-200 mb-2 p-2 bg-black/30 rounded border border-white/5 text-[10px] overflow-x-auto">${m.eq}</div>
+            <h3>System Type</h3><p class="text-cyan-400 font-bold">${m.sys}</p>
+            <h3>Description</h3><p>${m.desc}</p>
+            <h3>Assumptions</h3><ul>${m.assump.map(a=>`<li>${a}</li>`).join('')}</ul>
+            <h3>Validity Domain</h3><p class="text-green-400">${m.valid}</p>
+        `;
+
+        document.getElementById('custom-panel').classList.toggle('hidden', m.id !== 'custom');
+        document.getElementById('sel-bc').disabled = m.id !== 'quantum';
+        
+        const pc = document.getElementById('preset-container'); pc.innerHTML = '';
+        if(m.presets) m.presets.forEach(p => {
+            const b = document.createElement('button');
+            b.className = "bg-white/10 px-2 py-1 rounded text-[9px] hover:bg-cyan-500/50 transition";
+            b.innerText = p.n;
+            b.onclick = () => { this.state.params.k = p.k; document.getElementById('inp-k').value = p.k; document.getElementById('lbl-k').innerText = p.k; this.showToast(`Loaded: ${p.n}`); };
+            pc.appendChild(b);
+        });
+
+        ['phaseCanvas','poincareCanvas'].forEach(id=>this.clearCanvas(id));
+        if(window.chart) { window.chart.data.labels=[]; window.chart.data.datasets[0].data=[]; window.chart.update(); }
+        document.getElementById('data-body').innerHTML = '';
+
+        document.getElementById('page-home').classList.add('hidden-left');
+        document.getElementById('page-sim').classList.remove('hidden-right');
+        document.getElementById('diag-order').innerText = this.state.numerics.solver;
+        
+        document.getElementById('lbl-phase-proj').innerText = m.phases ? `Axis ${m.phases[0]} vs ${m.phases[1]}` : "X vs Y";
+    },
+
+    compileCustom() {
+        try {
+            const code = document.getElementById('inp-code-custom').value;
+            const type = document.getElementById('sel-custom-type').value;
+            const fn = new Function('t', 's', 'p', code);
+            Physics.eq.custom = fn;
+            
+            const m = Models.find(m=>m.id==='custom');
+            m.sys = type; // Update system type for locking
+            this.loadModel(m);
+            this.showToast("Custom Model Compiled");
+        } catch(e) { this.showToast("Error: " + e.message); }
+    },
+
+    spawnEnsemble() {
+        if(!this.state.active || this.state.active.id === 'quantum') return;
+        this.state.ensemble = [];
+        for(let i=0; i<50; i++) {
+            const perturbation = this.state.y.map(v => v + (Math.random()-0.5)*0.1);
+            this.state.ensemble.push(perturbation);
+        }
+        this.showToast("Spawned 50 trajectories");
+    },
+
+    loop() {
+        if(this.state.running && this.state.active) {
+            let dt = this.state.numerics.dt * this.state.numerics.dir;
+            const p = this.state.active.p(this.state.params.k);
+            p.bc = this.state.numerics.bc; // Pass BC to quantum params
+            if(this.state.active.sys === 'DELAY') p.tau = this.state.params.tau; // Enforce tau from slider for DDE
+
+            let fn = Physics.eq[this.state.active.fn];
+            let solver = this.state.numerics.solver;
+            
+            // Allow user override, but respect model constraints
+            if(this.state.numerics.symm && this.state.active.id !== 'quantum' && this.state.active.type !== 'DDE') solver = 'MID';
+
+            let currentErr = 0;
+            let steps = 4;
+            
+            for(let s=0; s<steps; s++) {
+                let res;
+                // DDE Handling (Hermite)
+                if(this.state.active.type === 'DDE' || solver === 'DDE') {
+                    const tau = Math.max(0.1, p.tau);
+                    // Push state + deriv to history
+                    const deriv = fn(this.state.t, this.state.y, this.state.y, p); // Approx current deriv
+                    this.state.hist.push({t:this.state.t, y:[...this.state.y], dy: deriv});
+                    if(this.state.hist.length > 2000) this.state.hist.shift();
+                    
+                    const stepRes = Physics.dde(this.state.t, this.state.y, dt, this.state.hist, tau, fn, p);
+                    res = { y: stepRes.y, err: 0 };
+                }
+                // Quantum Solvers
+                else if(solver === 'CN') {
+                    res = { y: Physics.crankNicolson(this.state.t, this.state.y, dt, p), err: 0 };
+                }
+                else if(solver === 'SPLIT') {
+                    res = { y: Physics.splitOp(this.state.t, this.state.y, dt, p), err: 0 };
+                }
+                // Standard ODEs
+                else if(solver === 'RK45') {
+                    res = Physics.rk45(this.state.t, this.state.y, Math.abs(dt), fn, p);
+                    this.state.y = res.y;
+                    this.state.numerics.dt = res.dt; // Update global dt based on error
+                    dt = res.dt * this.state.numerics.dir; 
+                    document.getElementById('diag-dt').innerText = res.dt.toExponential(3);
+                    currentErr = res.err;
+                }
+                else {
+                    // Truncation Error check for fixed step methods (every few frames)
+                    if(s === 0 && this.state.t % 0.1 < Math.abs(dt)) {
+                        const y1 = Physics.rk4(this.state.t, this.state.y, dt, fn, p);
+                        const y_half = Physics.rk4(this.state.t, this.state.y, dt/2, fn, p);
+                        const y2 = Physics.rk4(this.state.t + dt/2, y_half, dt/2, fn, p);
+                        let err = 0; for(let i=0;i<y1.length;i++) err += (y1[i]-y2[i])**2;
+                        currentErr = Math.sqrt(err) / 15;
+                        document.getElementById('diag-local').innerText = currentErr.toExponential(2);
+                        document.getElementById('diag-dt').innerText = Math.abs(dt).toFixed(3);
+                    }
+                    
+                    if(solver === 'SYMP') this.state.y = Physics.symplectic(this.state.t, this.state.y, dt, fn, p);
+                    else if(solver === 'VERLET') this.state.y = Physics.velocityVerlet(this.state.t, this.state.y, dt, fn, p);
+                    else if(solver === 'YOSHIDA') this.state.y = Physics.yoshida(this.state.t, this.state.y, dt, fn, p);
+                    else this.state.y = Physics.rk4(this.state.t, this.state.y, dt, fn, p);
+                }
+
+                this.state.y = res && res.y ? res.y : this.state.y;
+
+                // Quantum Unitarity Check
+                if(this.state.active.sys === 'QUANTUM') {
+                    let norm = 0; const N = this.state.y.length/2;
+                    for(let i=0; i<N; i++) norm += this.state.y[i]**2 + this.state.y[N+i]**2;
+                    norm = Math.sqrt(norm);
+                    document.getElementById('val-norm').innerText = norm.toFixed(6);
+                }
+
+                // Data Logging for PDF (Buffer limited to 2000)
+                if(s===0) {
+                    this.state.dataLog.push({t:this.state.t, y:[...this.state.y], err: currentErr});
+                    if(this.state.dataLog.length > 2000) this.state.dataLog.shift();
+                }
+
+                // Ensemble Integration
+                if(this.state.ensemble.length > 0) {
+                    for(let i=0; i<this.state.ensemble.length; i++) {
+                        this.state.ensemble[i] = Physics.rk4(this.state.t, this.state.ensemble[i], dt, fn, p);
+                    }
+                }
+
+                // Energy Drift
+                if(this.state.active.energy && this.state.E0) {
+                    const E = this.state.active.energy(this.state.y, p);
+                    const drift = Math.abs((E - this.state.E0)/this.state.E0);
+                    document.getElementById('diag-drift').innerText = (drift*100).toFixed(4) + "%";
+                }
+                
+                // Jacobian & Lyapunov (Metric Stability)
+                if(this.state.active.sys === 'DISSIPATIVE') {
+                    const div = Physics.jacobianTrace(this.state.y, fn, this.state.t, p);
+                    document.getElementById('val-div').innerText = div.toFixed(4);
+
+                    // Lyapunov Shadow (Benettin)
+                    if(this.state.shadow && s===0) {
+                        this.state.shadow = Physics.rk4(this.state.t, this.state.shadow, dt, fn, p);
+                        let d = Math.hypot(...this.state.y.map((v,i)=>v-this.state.shadow[i]));
+                        if(d > 0) {
+                            this.state.lyap.sum += Math.log(d/1e-7); this.state.lyap.n++;
+                            document.getElementById('val-lyap').innerText = (this.state.lyap.sum / (this.state.lyap.n*dt)).toFixed(3);
+                            // Rescale
+                            this.state.shadow = this.state.y.map((v,i) => v + (this.state.shadow[i]-v)*(1e-7/d));
+                        }
+                    }
+                }
+            }
+
+            this.state.t += dt;
+            this.updateAudio(this.state.y[0]||0);
+
+            // Buffering for Visuals
+            let pt = {x:0, y:0, z:0};
+            if(this.state.active.id === 'nbody') {
+                pt.bodies = [{x:this.state.y[0],y:this.state.y[1]}, {x:this.state.y[2],y:this.state.y[3]}, {x:this.state.y[4],y:this.state.y[5]}];
+            } else if(this.state.active.id === 'pendulum') {
+                const x1=Math.sin(this.state.y[0]), y1=Math.cos(this.state.y[0]);
+                pt = {x: x1+Math.sin(this.state.y[2]), y: y1+Math.cos(this.state.y[2]), z:0};
+            } else {
+                pt = {x:this.state.y[0], y:this.state.y[1], z:this.state.y[2]||0};
+            }
+
+            if(!pt.bodies && this.state.active.id !== 'quantum') {
+                this.state.traj.push(pt);
+                if(this.state.traj.length > 600) this.state.traj.shift();
+            }
+
+            if(this.state.t % 0.1 < Math.abs(dt)) {
+                this.updateGraph(this.state.y[0]||0);
+                this.updateTable();
+                this.updatePhase();
+                this.updatePoincare();
+                this.computeFFT();
+            }
+        }
+        this.render();
+        requestAnimationFrame(() => this.loop());
+    },
+
+    render() {
+        const cvs = document.getElementById('simCanvas');
+        const ctx = cvs.getContext('2d');
+        const w = cvs.width, h = cvs.height;
+
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg');
+        ctx.fillRect(0,0,w,h);
+
+        ctx.save();
+        ctx.translate(w/2 + this.state.view.cx, h/2 + this.state.view.cy);
+        const scale = this.state.view.zoom * (this.state.params.is3D ? 1 : (this.state.active.id==='nbody'?30:10));
+        ctx.scale(scale, scale);
+
+        const proj = (x,y,z) => {
+            if(!this.state.params.is3D) return {x:x*10, y:-y*10};
+            const yaw = this.state.view.rotX * Math.PI/180;
+            const pitch = this.state.view.rotY * Math.PI/180;
+            let x1 = x*Math.cos(yaw) - z*Math.sin(yaw);
+            let z1 = x*Math.sin(yaw) + z*Math.cos(yaw);
+            let y2 = y*Math.cos(pitch) - z1*Math.sin(pitch);
+            let z2 = y*Math.sin(pitch) + z1*Math.cos(pitch);
+            const s = 500/(500+z2); 
+            return {x: x1*s*10, y: -y2*s*10};
+        };
+
+        // Render Vector Field (Flow)
+        if(this.state.numerics.flow && this.state.active.id !== 'quantum' && this.state.active.id !== 'nbody') {
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.beginPath();
+            const fn = Physics.eq[this.state.active.fn];
+            const p = this.state.active.p(this.state.params.k);
+            const step = 2; // Grid spacing
+            const range = 20;
+            for(let x=-range; x<=range; x+=step) {
+                for(let y=-range; y<=range; y+=step) {
+                    const dv = fn(0, [x,y,0], p);
+                    const mag = Math.hypot(dv[0], dv[1]) + 0.001;
+                    const p1 = proj(x,y,0);
+                    const p2 = proj(x + dv[0]/mag, y + dv[1]/mag, 0);
+                    ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        // Render Ensemble
+        if(this.state.ensemble.length > 0) {
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.4)';
+            for(let i=0; i<this.state.ensemble.length; i++) {
+                const s = this.state.ensemble[i];
+                let p = proj(s[0], s[1], s[2]||0);
+                if(this.state.active.id==='pendulum') {
+                    const x1=Math.sin(s[0]), y1=Math.cos(s[0]);
+                    p = proj(x1+Math.sin(s[2]), y1+Math.cos(s[2]), 0);
+                }
+                ctx.beginPath(); ctx.arc(p.x, p.y, 2/scale, 0, 6.28); ctx.fill();
+            }
+        }
+
+        // Render Ghosts
+        if(this.state.numerics.ghosts && this.state.active.id !== 'nbody') {
+            const ge = this.state.ghostState.euler;
+            const pe = proj(ge[0], ge[1], ge[2]||0);
+            ctx.fillStyle = 'rgba(255,0,0,0.5)'; ctx.beginPath(); ctx.arc(pe.x, pe.y, 4/scale, 0, 6.28); ctx.fill();
+            
+            const gs = this.state.ghostState.symp;
+            const ps = proj(gs[0], gs[1], gs[2]||0);
+            ctx.fillStyle = 'rgba(0,255,0,0.5)'; ctx.beginPath(); ctx.arc(ps.x, ps.y, 4/scale, 0, 6.28); ctx.fill();
+        }
+
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2/scale;
+        if(this.state.params.glow) { ctx.shadowBlur = 15; ctx.shadowColor = '#06b6d4'; }
+
+        if(this.state.active.id === 'quantum') {
+            const N = this.state.y.length/2;
+            ctx.beginPath();
+            for(let i=0; i<N; i++) {
+                const mag = Math.sqrt(this.state.y[i]**2 + this.state.y[N+i]**2);
+                const p = proj((i-64)*0.5, mag*5, 0);
+                i===0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+            // Draw Barrier
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            const b1 = proj(25, -2, 0), b2 = proj(30, -2, 0);
+            ctx.fillRect(b1.x, -1000/scale, b2.x-b1.x, 2000/scale);
+        }
+        else if(this.state.active.id === 'nbody') {
+            const cols = ['#06b6d4', '#e879f9', '#facc15'];
+            if(this.state.params.trails) {
+                for(let b=0; b<3; b++) {
+                    ctx.strokeStyle = cols[b]; ctx.beginPath();
+                    for(let i=0; i<this.state.traj.length; i+=2) {
+                        if(!this.state.traj[i].bodies) continue;
+                        const p = proj(this.state.traj[i].bodies[b].x, this.state.traj[i].bodies[b].y, 0);
+                        i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);
+                    }
+                    ctx.stroke();
+                }
+            }
+            for(let b=0; b<3; b++) {
+                const p = proj(this.state.y[b*2], this.state.y[b*2+1], 0);
+                ctx.fillStyle = cols[b]; ctx.beginPath(); ctx.arc(p.x, p.y, 8/scale, 0, 6.28); ctx.fill();
+            }
+        }
+        else {
+            if(this.state.traj.length > 1) {
+                ctx.beginPath();
+                for(let i=0; i<this.state.traj.length; i++) {
+                    const t = this.state.traj[i]; if(t.bodies) continue;
+                    const p = proj(t.x, t.y, t.z);
+                    i===0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+                }
+                ctx.stroke();
+            }
+            if(this.state.traj.length) {
+                const last = this.state.traj[this.state.traj.length-1];
+                if(!last.bodies) {
+                    const p = proj(last.x, last.y, last.z);
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, 4/scale, 0, 6.28); ctx.fill();
+                }
+            }
+        }
+        ctx.restore();
+    },
+
+    setupInputs() {
+        const c = document.getElementById('simCanvas');
+        c.addEventListener('pointerdown', e => {
+            c.setPointerCapture(e.pointerId);
+            this.state.input.ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+            if(this.state.input.ptrs.size === 2) {
+                const p = [...this.state.input.ptrs.values()];
+                this.state.input.prevDist = Math.hypot(p[0].x-p[1].x, p[0].y-p[1].y);
+                document.getElementById('gesture-hint').style.opacity = 1;
+            }
+        });
+        c.addEventListener('pointermove', e => {
+            if(!this.state.input.ptrs.has(e.pointerId)) return;
+            const old = this.state.input.ptrs.get(e.pointerId);
+            if(this.state.input.ptrs.size === 1) {
+                const dx = e.clientX - old.x, dy = e.clientY - old.y;
+                if(this.state.params.is3D) { this.state.view.rotX += dx * 0.5; this.state.view.rotY += dy * 0.5; document.getElementById('inp-rotX').value = this.state.view.rotX % 360; } 
+                else { this.state.view.cx += dx; this.state.view.cy += dy; }
+            } else if(this.state.input.ptrs.size === 2) {
+                this.state.input.ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+                const p = [...this.state.input.ptrs.values()];
+                const dist = Math.hypot(p[0].x-p[1].x, p[0].y-p[1].y);
+                const delta = dist - this.state.input.prevDist;
+                this.state.view.zoom *= (1 + delta * 0.005);
+                this.state.input.prevDist = dist;
+                document.getElementById('inp-zoom').value = this.state.view.zoom;
+            }
+            this.state.input.ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+        });
+        c.addEventListener('pointerup', e => { this.state.input.ptrs.delete(e.pointerId); if(this.state.input.ptrs.size < 2) document.getElementById('gesture-hint').style.opacity = 0; });
+        
+        document.getElementById('inp-k').oninput = e => { this.state.params.k = parseFloat(e.target.value); document.getElementById('lbl-k').innerText = e.target.value; };
+        document.getElementById('inp-3d').onchange = e => this.state.params.is3D = e.target.checked;
+        document.getElementById('inp-rotX').oninput = e => this.state.view.rotX = parseFloat(e.target.value);
+        document.getElementById('inp-zoom').oninput = e => this.state.view.zoom = parseFloat(e.target.value);
+        document.getElementById('inp-glow').onchange = e => this.state.params.glow = e.target.checked;
+        document.getElementById('inp-dt').oninput = e => { this.state.numerics.dt = parseFloat(e.target.value); document.getElementById('lbl-dt').innerText = e.target.value; };
+    },
+
+    toggleCinema() {
+        const isCinema = document.body.classList.toggle('cinema-mode');
+        if(isCinema) {
+            if(document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => console.warn("Fullscreen blocked"));
+            }
+            this.showToast("Tap screen to exit");
+            document.getElementById('simCanvas').addEventListener('click', () => this.toggleCinema(), {once:true});
+        } else {
+            if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+        }
+    },
+    
+    toggleDrawer() { 
+        const d=document.getElementById('drawer'); 
+        const isUp = d.style.transform === 'translateY(0px)' || d.style.transform === '';
+        d.style.transform = isUp ? 'translateY(85%)' : 'translateY(0px)';
+    },
+
+    setTab(id) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`button[data-tab="${id}"]`).classList.add('active');
+        ['controls','numerics','phase','poincare','graph','bifur','fft','data','info'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
+        document.getElementById('tab-'+id).classList.remove('hidden');
+        this.resize();
+    },
+
+    // Numerics Controls
+    setDirection(d) { 
+        this.state.numerics.dir = d; 
+        document.getElementById('btn-fwd').className = d===1 ? "px-2 py-1 bg-cyan-600 rounded text-white" : "bg-white/10 px-2 py-1 rounded";
+        document.getElementById('btn-bwd').className = d===-1 ? "px-2 py-1 bg-cyan-600 rounded text-white" : "bg-white/10 px-2 py-1 rounded";
+    },
+    toggleSymm() {
+        this.state.numerics.symm = !this.state.numerics.symm;
+        document.getElementById('btn-sym').className = this.state.numerics.symm ? "px-2 py-1 bg-purple-600 rounded text-white" : "bg-white/10 px-2 py-1 rounded";
+        this.showToast(this.state.numerics.symm ? "Symplectic Enforced" : "Standard Mode");
+    },
+    setBC(val) { this.state.numerics.bc = val; },
+    setSolver(val) { this.state.numerics.solver = val; document.getElementById('diag-order').innerText = val; },
+    toggleGhosts() { this.state.numerics.ghosts = document.getElementById('chk-ghosts').checked; },
+    toggleFlow() { this.state.numerics.flow = document.getElementById('chk-flow').checked; },
+    
+    runDtSweep() {
+        if(!this.state.active) return;
+        const resDiv = document.getElementById('sweep-result');
+        resDiv.classList.remove('hidden'); resDiv.innerText = "Computing convergence...";
+        
+        setTimeout(() => {
+            const steps = [0.1, 0.05, 0.025, 0.0125];
+            const errs = [];
+            const T = 5;
+            const fn = Physics.eq[this.state.active.fn];
+            const p = this.state.active.p(this.state.params.k);
+            let y_ref = [...this.state.active.init];
+            let dt_ref = 0.001;
+            // Ref run
+            if(this.state.active.id === 'quantum') { resDiv.innerText="N/A for Quantum"; return; }
+            for(let t=0; t<T; t+=dt_ref) y_ref = Physics.rk4(t, y_ref, dt_ref, fn, p);
+            
+            steps.forEach(dt => {
+                let y = [...this.state.active.init];
+                for(let t=0; t<T; t+=dt) y = Physics.rk4(t, y, dt, fn, p);
+                let err = 0;
+                for(let i=0; i<y.length; i++) err += (y[i]-y_ref[i])**2;
+                errs.push(Math.sqrt(err));
+            });
+            resDiv.innerHTML = `DT SWEEP (Error @ T=${T}):<br>dt=0.1: ${errs[0].toExponential(1)}<br>dt=0.01: ${errs[3].toExponential(1)}<br>Converges as O(dt^${(Math.log(errs[0]/errs[3])/Math.log(0.1/0.0125)).toFixed(1)})`;
+        }, 50);
+    },
+    
+    runReversibility() {
+        const y_start = [...this.state.y];
+        const steps = 100;
+        const dt = this.state.numerics.dt;
+        const fn = Physics.eq[this.state.active.fn];
+        const p = this.state.active.p(this.state.params.k);
+        let y = [...y_start];
+        for(let i=0; i<steps; i++) y = Physics.rk4(0, y, dt, fn, p);
+        for(let i=0; i<steps; i++) y = Physics.rk4(0, y, -dt, fn, p);
+        let diff = 0; for(let i=0; i<y.length; i++) diff += (y[i]-y_start[i])**2;
+        this.showToast(`Reversibility Err: ${Math.sqrt(diff).toExponential(2)}`);
+    },
+
+    updateGraph(val) { if(!window.chart) return; window.chart.data.labels.push(this.state.t.toFixed(1)); window.chart.data.datasets[0].data.push(val); if(window.chart.data.labels.length>50) { window.chart.data.labels.shift(); window.chart.data.datasets[0].data.shift(); } if(!document.getElementById('tab-graph').classList.contains('hidden')) window.chart.update('none'); },
+    updateTable() { if(document.getElementById('tab-data').classList.contains('hidden')) return; const b = document.getElementById('data-body'); const r = document.createElement('tr'); r.innerHTML = `<td class="p-3 opacity-50 font-mono">${this.state.t.toFixed(2)}</td><td class="text-cyan-400 font-bold">${(this.state.y[0]||0).toFixed(3)}</td><td class="text-pink-400">${(this.state.y[1]||0).toFixed(3)}</td><td class="text-white/50">${(this.state.y[2]||0).toFixed(3)}</td><td class="text-red-400 text-[8px]">${(this.state.dataLog[this.state.dataLog.length-1]?.err||0).toExponential(1)}</td>`; b.prepend(r); if(b.children.length>20) b.lastChild.remove(); },
+    updatePhase() { 
+        if(document.getElementById('tab-phase').classList.contains('hidden')) return;
+        if(['DRIVEN', 'DELAY'].includes(this.state.active.sys)) return; // Disable for Driven/Delay
+        const ctx = document.getElementById('phaseCanvas').getContext('2d'); const w = ctx.canvas.width; const idx1=this.state.active.phases?.[0]||0; const idx2=this.state.active.phases?.[1]||1; ctx.fillStyle = 'rgba(168, 85, 247, 0.5)'; ctx.fillRect(w/2 + this.state.y[idx1]*10, w/2 - this.state.y[idx2]*10, 2, 2); 
+    },
+    updatePoincare() { 
+        if(document.getElementById('tab-poincare').classList.contains('hidden')) return; 
+        if(this.state.active.sys !== 'DRIVEN') return; // Only for Driven
+
+        const p = this.state.active.p(this.state.params.k);
+        const w_drive = p.w || 1;
+        const T = 2 * Math.PI / w_drive;
+        
+        // Strobing logic: t approx n*T
+        // Check if we crossed a period boundary in this step
+        const dt = this.state.numerics.dt;
+        const phase = this.state.t % T;
+        
+        if(phase < dt) { 
+            const ctx = document.getElementById('poincareCanvas').getContext('2d'); 
+            const w = ctx.canvas.width; 
+            ctx.fillStyle = '#f97316'; 
+            ctx.fillRect(w/2 + this.state.y[0]*10, w/2 - this.state.y[1]*10, 3, 3); 
         } 
-    });
-}
-function bindInput(id,p){document.getElementById(id).addEventListener('input',e=>{State.params[p]=parseFloat(e.target.value);document.getElementById(`lbl-${p}`).innerText=e.target.value;renderMath()})}
-function renderMath(){if(State.activeAlgo){let eq=State.activeAlgo.eq.replace(/k/g,State.params.k).replace(/\\tau/g,State.params.tau);try{katex.render(eq,document.getElementById('katex-eq'),{throwOnError:false})}catch(e){}}}
-function applyPreset(p){
-    if(p.dx) { document.getElementById('inp-custom-dx').value=p.dx; document.getElementById('inp-custom-dv').value=p.dv; applyCustomEq(); }
-    Object.keys(p).forEach(k=>{if(!['name','dx','dv'].includes(k)){State.params[k]=p[k];let el=document.getElementById(`inp-${k}`);if(el)el.value=p[k]}}); 
-    if(State.activeAlgo.type==='FDE_1ST'||State.activeAlgo.type==='LORENZ')State.history.x=[0.1];else State.history.x=[1]; 
-    clearPhase(); clearPoincare(); showToast(`Preset: ${p.name}`); renderMath();
-}
-function clearPhase(){phaseCvs.width=phaseCvs.clientWidth;phaseCvs.height=phaseCvs.clientHeight;phaseCtx.clearRect(0,0,phaseCvs.width,phaseCvs.height)}
-function clearPoincare(){poinCvs.width=poinCvs.clientWidth;poinCvs.height=poinCvs.clientHeight;poinCtx.clearRect(0,0,poinCvs.width,poinCvs.height)}
-function updateTable(){const b=document.getElementById('data-body'); if(document.getElementById('tab-data').classList.contains('hidden'))return;let v=State.history.x[0]||0,d=State.history.v[0]||0;let r=document.createElement('tr');r.innerHTML=`<td class="p-2 border-b border-white/5 text-slate-500">${State.t}</td><td class="p-2 border-b border-white/5 text-cyan-400">${v.toFixed(3)}</td><td class="p-2 border-b border-white/5 text-pink-400">${d.toFixed(3)}</td>`;b.insertBefore(r,b.firstChild);if(b.children.length>20)b.removeChild(b.lastChild);}
-function setTab(name){
-    document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('text-cyan-400','border-cyan-400','opacity-100');b.classList.add('opacity-60','border-transparent')});
-    const btn=document.querySelector(`button[onclick="setTab('${name}')"]`);
-    if(btn){btn.classList.remove('opacity-60','border-transparent');btn.classList.add('text-cyan-400','border-cyan-400','opacity-100')}
-    ['controls','phase','poincare','graph','bifurcation','spectrum','data','series','compare','info'].forEach(t=>document.getElementById(`tab-${t}`).classList.add('hidden'));
-    document.getElementById(`tab-${name}`).classList.remove('hidden');
-    // FORCE RESIZE on tab switch to fix 0-width bugs
-    setTimeout(resize, 50); 
-}
-function toggleDrawer(){const d=document.getElementById('drawer');d.style.transform=d.style.transform==='translateY(70%)'?'translateY(0)':'translateY(70%)'}
-function toggleFocusMode(){const d=document.getElementById('drawer'),h=document.getElementById('sim-header');d.classList.toggle('focus-hide');h.classList.toggle('header-hide')}
-function togglePause(){State.running=!State.running;document.getElementById('play-btn').innerHTML=State.running?'<i class="fas fa-pause text-xs"></i>':'<i class="fas fa-play text-xs"></i>';document.getElementById('sim-status').innerText=State.running?'RUNNING':'PAUSED';if(State.running)loop()}
-function showToast(msg){const t=document.getElementById('toast');document.getElementById('toast-msg').innerText=msg;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2000)}
-function updateTimeline(){const m=["476 CE: Aryabhata","1400 CE: Madhava","1687 CE: Newton","1977: Chaos","FUTURE: Raju"];document.getElementById('timeline-info').innerText=m[document.getElementById('timeline-slider').value]}
-function initAudio(){if(State.audio.ctx)return;const AC=window.AudioContext||window.webkitAudioContext;State.audio.ctx=new AC();State.audio.analyser=State.audio.ctx.createAnalyser();State.audio.analyser.fftSize=256;State.audio.osc=State.audio.ctx.createOscillator();State.audio.gain=State.audio.ctx.createGain();State.audio.osc.connect(State.audio.gain);State.audio.gain.connect(State.audio.analyser);State.audio.analyser.connect(State.audio.ctx.destination);State.audio.osc.start();State.audio.gain.gain.value=0}
-function toggleAudio(){
-    if(!State.audio.ctx)initAudio();
-    // Resume context on user gesture
-    if(State.audio.ctx.state==='suspended') State.audio.ctx.resume();
-    State.audio.enabled=!State.audio.enabled;
-    document.getElementById('btn-audio').innerHTML=State.audio.enabled?'<i class="fas fa-volume-up text-cyan-400"></i>':'<i class="fas fa-volume-mute text-xs opacity-70"></i>';
-    showToast(State.audio.enabled?"Audio ON":"Audio OFF")
-}
-function updateAudio(val){if(!State.audio.enabled)return;State.audio.osc.frequency.setTargetAtTime(Math.max(50,Math.min(1000,200+val*100)),State.audio.ctx.currentTime,0.1);State.audio.gain.gain.setTargetAtTime(0.05,State.audio.ctx.currentTime,0.1)}
-function drawSpectrum(){if(!State.audio.analyser)return;const w=specCvs.width,h=specCvs.height,c=specCvs.getContext('2d');const d=new Uint8Array(State.audio.analyser.frequencyBinCount);State.audio.analyser.getByteFrequencyData(d);c.clearRect(0,0,w,h);for(let i=0,x=0;i<d.length;i++){let bh=d[i]/2;c.fillStyle=`rgb(${bh+100},50,150)`;c.fillRect(x,h-bh,(w/d.length)*2.5,bh);x+=(w/d.length)*2.5+1}}
-async function runBifurcation(){const c=document.getElementById('bifCanvas').getContext('2d'),w=bifCvs.width,h=bifCvs.height;c.fillStyle='#000';c.fillRect(0,0,w,h);document.getElementById('bif-overlay').classList.remove('hidden');const st=100,tr=500,sa=200,ot=State.params.tau;c.strokeStyle='#333';c.beginPath();c.moveTo(0,h/2);c.lineTo(w,h/2);c.stroke();for(let i=0;i<st;i++){let ct=(i/st)*100,sx=[1],sv=[0];for(let t=0;t<tr+sa;t++){let idx=Math.floor(ct),xo=(idx<sx.length)?sx[idx]:0,dx=0;if(State.activeAlgo.type.includes('MACKEY')){let beta=State.params.k*2;dx=(beta*xo)/(1+Math.pow(xo,10))-0.1*sx[0];sx.unshift(sx[0]+dx*0.1)}else{let a=-State.params.k*xo-0.05*sv[0];sv.unshift(sv[0]+a*0.1);sx.unshift(sx[0]+sv[0]*0.1)}if(sx.length>200){sx.pop();if(sv.length>0)sv.pop()}if(t>tr&&sx[1]>sx[0]&&sx[1]>sx[2]){c.fillStyle='#4ade80';c.fillRect((i/st)*w,h/2-sx[1]*(h/4),1,1)}}document.getElementById('scan-progress').innerText=Math.round((i/st)*100)+'%';await new Promise(r=>setTimeout(r,0))}document.getElementById('bif-overlay').classList.add('hidden');State.params.tau=ot}
-function initChart(){if(chartObj)chartObj.destroy();chartObj=new Chart(document.getElementById('graphCanvas').getContext('2d'),{type:'line',data:{labels:[],datasets:[{label:'X',data:[],borderColor:'#06b6d4',borderWidth:2,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:false,scales:{x:{display:false},y:{grid:{color:'#333'}}},plugins:{legend:{display:false}}}})}
-function initSeriesChart(){if(seriesChart)seriesChart.destroy();seriesChart=new Chart(document.getElementById('seriesCanvas').getContext('2d'),{type:'line',data:{labels:[],datasets:[{label:'Exact',data:[],borderColor:'#4ade80',borderWidth:2,pointRadius:0},{label:'Approx',data:[],borderColor:'#f472b6',borderDash:[5,5],borderWidth:2,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:false,scales:{x:{display:false},y:{grid:{color:'#333'}}}}})}
-function initCompareChart(){if(compareChart)compareChart.destroy();compareChart=new Chart(document.getElementById('compareCanvas').getContext('2d'),{type:'line',data:{labels:[],datasets:[{label:'Newton',data:[],borderColor:'#60a5fa',borderWidth:2,pointRadius:0},{label:'Raju',data:[],borderColor:'#e879f9',borderWidth:2,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:false,scales:{x:{display:false},y:{grid:{color:'#333'}}},plugins:{legend:{display:false}}}})}
-function updateCharts(){if(chartObj&&!document.getElementById('tab-graph').classList.contains('hidden')){chartObj.data.labels.push(State.t);chartObj.data.datasets[0].data.push(State.history.x[0]||0);if(chartObj.data.labels.length>50){chartObj.data.labels.shift();chartObj.data.datasets[0].data.shift()}chartObj.update('none')}if(seriesChart&&!document.getElementById('tab-series').classList.contains('hidden')){let l,e,a=0,x=State.t*0.1;if(State.activeAlgo.id==='series_sin'){for(let n=0;n<State.params.terms;n++)a+=(Math.pow(-1,n)*Math.pow(x,2*n+1))/factorial(2*n+1);e=Math.sin(x);l=x.toFixed(1)}else{for(let n=0;n<State.params.terms;n++)a+=4*(Math.pow(-1,n))/(2*n+1);e=Math.PI;l=State.t}seriesChart.data.labels.push(l);seriesChart.data.datasets[0].data.push(e);seriesChart.data.datasets[1].data.push(a);if(seriesChart.data.labels.length>30){seriesChart.data.labels.shift();seriesChart.data.datasets.forEach(d=>d.data.shift())}seriesChart.update('none')}if(compareChart&&!document.getElementById('tab-compare').classList.contains('hidden')&&State.history.x_pde.length>0){compareChart.data.labels.push(State.t);compareChart.data.datasets[0].data.push(State.history.x_pde[0]);compareChart.data.datasets[1].data.push(State.history.x[0]);if(compareChart.data.labels.length>50){compareChart.data.labels.shift();compareChart.data.datasets.forEach(d=>d.data.shift())}compareChart.update('none')}}
-function factorial(n){if(n<=1)return 1;let r=1;for(let i=2;i<=n;i++)r*=i;return r}
-function setupInteractions(){const h=e=>{if(State.activeAlgo.type==='REACTION_DIFFUSION'){let r=cvs.getBoundingClientRect(),x=(e.touches?e.touches[0].clientX:e.clientX)-r.left,y=(e.touches?e.touches[0].clientY:e.clientY)-r.top,ix=Math.floor(x/r.width*64),iy=Math.floor(y/r.height*64);State.gs.v[iy*64+ix]=1}if(!State.activeAlgo.type.includes('WAVE')&&!State.activeAlgo.type.includes('THERMO'))return;const r=cvs.getBoundingClientRect(),x=(e.touches?e.touches[0].clientX:e.clientX)-r.left,i=Math.floor(x/r.width*100);if(i>=0&&i<100)State.grid[i]=1.0};cvs.addEventListener('mousedown',h);cvs.addEventListener('touchmove',h)}
-function populateHome(){const l=document.getElementById('algo-list');l.innerHTML='';Object.keys(ALGO_DB).forEach(cat=>{let s=document.createElement('div');s.innerHTML=`<h3 class="text-[9px] font-bold opacity-60 mb-2 ml-1 border-l-2 border-cyan-500 pl-2 uppercase tracking-widest sticky top-0 bg-black/80 backdrop-blur z-20 py-1">${cat}</h3>`;let g=document.createElement('div');g.className='grid grid-cols-1 gap-2 mb-6';ALGO_DB[cat].forEach(algo=>{let b=document.createElement('button');b.className='bg-white/5 border border-white/5 p-3 rounded-lg flex justify-between items-center active:bg-white/10 transition group hover:border-cyan-500/30 hover:bg-white/10';b.innerHTML=`<div class="text-left"><div class="font-bold text-xs group-hover:text-cyan-400 transition">${algo.title}</div><div class="text-[9px] opacity-60 font-mono mt-0.5">${algo.type}</div></div><div class="w-7 h-7 rounded-full bg-black flex items-center justify-center text-cyan-500 group-hover:bg-cyan-500 group-hover:text-black transition shadow-lg"><i class="fas fa-play text-[9px]"></i></div>`;b.onclick=()=>launchSim(algo);g.appendChild(b)});s.appendChild(g);l.appendChild(s)})}
-window.exportCSV=()=>{let c="Time,X,V\n",l=Math.min(State.history.x.length,1000);for(let i=0;i<l;i++)c+=`${i},${State.history.x[i]},${State.history.v[i]}\n`;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download='data.csv';a.click()}
-window.exportPDF=()=>{const{jsPDF}=window.jspdf,d=new jsPDF();d.setFillColor(15,23,42);d.rect(0,0,210,40,'F');d.setTextColor(255,255,255);d.text("Scientific Report",10,15);d.setFontSize(10);d.text(`Sim: ${State.activeAlgo.title}`,10,25);d.setTextColor(0,0,0);let r=[],l=Math.min(State.history.x.length,50);for(let i=0;i<l;i++)r.push([i,State.history.x[i].toFixed(4),State.history.v[i].toFixed(4)]);d.autoTable({head:[['t','x','v']],body:r,startY:50});d.save('report.pdf')}
-window.exportGraphPDF=(id)=>{const{jsPDF}=window.jspdf,d=new jsPDF('landscape');d.setFillColor(0,0,0);d.rect(0,0,297,210,'F');d.addImage(document.getElementById(id).toDataURL('image/png'),'PNG',10,10,280,150);d.setTextColor(255,255,255);d.text(`Snapshot: ${State.activeAlgo.title}`,10,170);d.save('Snapshot.pdf')}
+    },
+    
+    computeFFT() {
+        if(document.getElementById('tab-fft').classList.contains('hidden')) return;
+        
+        // Calculate and display Nyquist
+        const dt = this.state.numerics.dt;
+        const nyquist = 1 / (2 * dt);
+        document.getElementById('lbl-nyquist').innerText = nyquist.toFixed(1);
 
-// BOOT
-init();
+        const data = this.state.traj.map(p => p.bodies ? p.bodies[0].x : p.x); // Support NBody
+        const N = data.length; 
+        // Windowing (Power of 2 for potential FFT optim, though we use naive DFT here for short segments)
+        if(N < 64) return;
+        
+        const spectrum = []; const K = 32; 
+        for(let k=0; k<K; k++) {
+            let re=0, im=0;
+            for(let n=0; n<N; n++) { const theta = -2*Math.PI*k*n/N; re += data[n] * Math.cos(theta); im += data[n] * Math.sin(theta); }
+            spectrum.push(Math.sqrt(re*re + im*im));
+        }
+        const max = Math.max(...spectrum) || 1;
+        const cont = document.getElementById('fft-bars'); cont.innerHTML = '';
+        spectrum.forEach(v => { const h = (v/max)*100; const bar = document.createElement('div'); bar.className = 'flex-1 bg-pink-500/80 hover:bg-pink-400'; bar.style.height = `${h}%`; cont.appendChild(bar); });
+    },
+    
+    runBifurcation() { 
+        const cvs = document.getElementById('bifurCanvas'); const ctx = cvs.getContext('2d'); const w=cvs.clientWidth; const h=cvs.clientHeight; cvs.width=w; cvs.height=h;
+        ctx.fillStyle='black'; ctx.fillRect(0,0,w,h); document.getElementById('bifur-overlay').classList.remove('hidden'); 
+        setTimeout(() => { 
+            ctx.fillStyle = '#4ade80'; const fn = Physics.eq[this.state.active.fn]; let p;
+            for(let i=0; i<w; i+=2) {
+                const k = i/w; p = this.state.active.p(k);
+                let s = [...this.state.active.init];
+                // Burn transient
+                for(let t=0; t<500; t++) s = Physics.rk4(0, s, 0.05, fn, p);
+                let prevX = s[0];
+                for(let t=0; t<100; t++) {
+                    s = Physics.rk4(0, s, 0.05, fn, p); const currX = s[0];
+                    if(t>1 && currX < prevX) ctx.fillRect(i, h/2 - prevX*5, 1.5, 1.5);
+                    prevX = currX;
+                }
+            }
+            document.getElementById('bifur-overlay').classList.add('hidden'); 
+        }, 100); 
+    },
+    
+    exportCSV() { let c = "Time,X,Y,Z\n"; this.state.dataLog.forEach(p => c += `${p.t.toFixed(2)},${p.y[0]},${p.y[1]},${p.y[2]||0}\n`); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([c], {type:'text/csv'})); a.download = 'data.csv'; a.click(); },
+    
+    exportPDF() { 
+        if(!window.jspdf) { this.showToast("PDF Lib not ready"); return; }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(18); doc.setTextColor(0, 150, 200);
+        doc.text(`Simulation Report: ${this.state.active.title}`, 14, 20);
+        doc.setFontSize(10); doc.setTextColor(0,0,0);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+        doc.text(`Model: ${this.state.active.eq}`, 14, 34);
+        
+        const canvas = document.getElementById('simCanvas');
+        const imgData = canvas.toDataURL("image/jpeg", 0.7);
+        doc.addImage(imgData, 'JPEG', 14, 40, 180, 100);
+
+        if(doc.autoTable) {
+            const rows = this.state.dataLog.map(d => [d.t.toFixed(2), d.y[0].toFixed(4), d.y[1].toFixed(4), (d.y[2]||0).toFixed(4), (d.err||0).toExponential(1)]);
+            doc.autoTable({ head: [["Time", "X", "Y", "Z", "Error"]], body: rows, startY: 150, styles: { fontSize: 8, font: "courier" }, headStyles: { fillColor: [0, 150, 200] } });
+        }
+        doc.save("FDE_Report.pdf"); 
+    },
+    
+    toggleRec() { if(!this.state.rec.on) { try { const s = document.getElementById('simCanvas').captureStream(30); this.state.rec.media = new MediaRecorder(s); this.state.rec.chunks = []; this.state.rec.media.ondataavailable = e => this.state.rec.chunks.push(e.data); this.state.rec.media.onstop = () => { const blob = new Blob(this.state.rec.chunks, {type:'video/webm'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sim.webm'; a.click(); }; this.state.rec.media.start(); this.state.rec.on = true; document.getElementById('rec-dot').classList.remove('hidden'); this.showToast("Recording..."); } catch(e) { this.showToast("Not Supported"); } } else { this.state.rec.media.stop(); this.state.rec.on = false; document.getElementById('rec-dot').classList.add('hidden'); this.showToast("Saved"); } },
+    togglePause() { this.state.running = !this.state.running; document.getElementById('play-btn').innerHTML = this.state.running ? '<i class="fas fa-pause text-xs"></i>' : '<i class="fas fa-play text-xs"></i>'; },
+    toggleAudio() { 
+        if(!this.state.audio.ctx) { const A=window.AudioContext||window.webkitAudioContext; this.state.audio.ctx=new A(); this.state.audio.osc=this.state.audio.ctx.createOscillator(); this.state.audio.gain=this.state.audio.ctx.createGain(); this.state.audio.osc.connect(this.state.audio.gain); this.state.audio.gain.connect(this.state.audio.ctx.destination); this.state.audio.osc.start(); this.state.audio.gain.gain.value=0; } 
+        this.state.audio.on = !this.state.audio.on; this.showToast(this.state.audio.on?"Audio ON":"Audio OFF"); 
+    },
+    updateAudio(v) { if(this.state.audio.on) { this.state.audio.osc.frequency.setTargetAtTime(200+Math.abs(v)*100, this.state.audio.ctx.currentTime, 0.1); this.state.audio.gain.gain.setTargetAtTime(0.1, this.state.audio.ctx.currentTime, 0.1); } else if(this.state.audio.ctx) { this.state.audio.gain.gain.setTargetAtTime(0, this.state.audio.ctx.currentTime, 0.1); } },
+    
+    goBack() { this.state.running=false; document.getElementById('page-home').classList.remove('hidden-left'); document.getElementById('page-sim').classList.add('hidden-right'); },
+    clearCanvas(id) { const c=document.getElementById(id); if(c) c.getContext('2d').clearRect(0,0,c.width,c.height); },
+    showToast(msg) { const t=document.getElementById('toast'); document.getElementById('toast-msg').innerText=msg; t.style.opacity=1; setTimeout(()=>t.style.opacity=0, 2000); },
+    resize() { ['simCanvas','phaseCanvas','poincareCanvas','graphCanvas','bifurCanvas'].forEach(id => { const el = document.getElementById(id); if(el && el.offsetParent) { el.width = el.clientWidth; el.height = el.clientHeight; } }); },
+    initChart() { const ctx = document.getElementById('graphCanvas').getContext('2d'); window.chart = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Val', data: [], borderColor: '#06b6d4', borderWidth: 2, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: {display:false}, y: {grid:{color:'rgba(255,255,255,0.05)'}} }, plugins: { legend: {display:false} } } }); }
+};
+
+App.init();
 </script>
 </body>
 </html>
