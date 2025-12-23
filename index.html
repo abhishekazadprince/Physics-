@@ -26,7 +26,7 @@
 
     <style>
         /* --- CORE RESET --- */
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: none; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;}
         :root { --bg: #000000; --accent: #06b6d4; --glass: rgba(10, 10, 18, 0.90); --border: rgba(255,255,255,0.15); }
         body { background: var(--bg); color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; height: 100dvh; width: 100vw; overflow: hidden; margin: 0; position: fixed; }
         
@@ -37,7 +37,7 @@
         .page.hidden-left { transform: translateX(-30%); opacity: 0.5; }
         
         /* CANVAS */
-        canvas { width: 100%; height: 100%; outline: none; display: block; }
+        canvas { width: 100%; height: 100%; outline: none; display: block; touch-action: none;}
         
         /* UI ELEMENTS */
         .glass { background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border); }
@@ -1503,4 +1503,5 @@ App.init();
 </script>
 </body>
 </html>
+
 
